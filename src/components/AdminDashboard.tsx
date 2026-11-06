@@ -75,15 +75,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleAdminLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = adminUsername.trim().toLowerCase();
+    const enteredPass = adminPassword.trim();
     
-    // सुरक्षित ईमेल और पासवर्ड (फ़ॉलबैक के साथ)
-    const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').toLowerCase();
-    const validPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'QwertyuiopSarbSher@1310S';
+    // सुरक्षित ईमेल और पासवर्ड चेक
+    const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').trim().toLowerCase();
+    const validPassword = (import.meta.env.VITE_ADMIN_PASSWORD || 'QwertyuiopSarbSher@1310').trim();
 
-    if (
-      (cleanUser === validEmail || cleanUser === 'channa' || cleanUser === 'admin') && 
-      adminPassword === validPassword
-    ) {
+    const isUserValid = (
+      cleanUser === validEmail || 
+      cleanUser === 'channa' || 
+      cleanUser === 'admin' ||
+      cleanUser === 'cleancsvglobal@gmail.com'
+    );
+
+    if (isUserValid && enteredPass === validPassword) {
       setLoginError('');
       onLoginAdmin();
     } else {
