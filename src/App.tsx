@@ -59,7 +59,7 @@ export default function App() {
 
   const t = translations[currentLanguage];
 
-  // ✅ Active Logged In User & Admin Sync
+  // Active Logged In User & Admin Sync
   const loggedInAppUser = users.find(u => u.email.toLowerCase() === profile.email.toLowerCase());
   const isUserPro = Boolean(
     profile.plan === 'PRO' ||
@@ -79,7 +79,6 @@ export default function App() {
   };
 
   const handleIncrementUsage = () => {
-    // अगर Pro / Admin है तो कोई रोक नहीं
     if (isUserPro) {
       return;
     }
@@ -150,34 +149,22 @@ export default function App() {
     }));
   };
 
+  // ✅ जब कस्टमर लॉगिन करेगा: हमेशा होम/क्लीनर पेज पर ही रहेगा, एडमिन ऑटो-ओपन नहीं होगा
   const handleLoginSuccess = (name: string, email: string) => {
     setIsLoggedIn(true);
+    setIsAdminLoggedIn(false); // एडमिन तब तक लॉक रहेगा जब तक पासवर्ड न डाला जाए
     
     const cleanEmail = email.trim().toLowerCase();
-    const isAdmin = cleanEmail === 'cleancsvglobal@gmail.com' || cleanEmail === 'shersinghchanna0@gmail.com';
+    const isOwner = cleanEmail === 'cleancsvglobal@gmail.com' || cleanEmail === 'shersinghchanna0@gmail.com';
 
-    if (isAdmin) {
-      setIsAdminLoggedIn(true);
-      setProfile((prev) => ({
-        ...prev,
-        name: name || 'Sher Singh',
-        email: email,
-        role: 'Admin',
-        plan: 'PRO',
-      }));
-      setCurrentView('admin');
-      return;
-    }
-
-    // यूज़र की पिछली स्थिति चेक करें अगर एडमिन ने पहले से Pro किया हुआ है
     const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
-    const existingPlan = existing?.userType === 'Premium' ? 'PRO' : 'BASIC';
+    const existingPlan = (isOwner || existing?.userType === 'Premium') ? 'PRO' : 'BASIC';
 
     setProfile((prev) => ({
       ...prev,
-      name: name,
+      name: name || (isOwner ? 'Sher Singh' : 'Customer'),
       email: email,
-      role: 'Customer',
+      role: isOwner ? 'Admin' : 'Customer',
       plan: existingPlan,
     }));
 
@@ -188,9 +175,9 @@ export default function App() {
       return [
         {
           id: `u_${Date.now()}`,
-          name,
+          name: name || (isOwner ? 'Sher Singh' : 'Customer'),
           email,
-          userType: 'Basic',
+          userType: isOwner ? 'Premium' : 'Basic',
           signUpDate: new Date().toISOString().split('T')[0],
           status: 'Active',
         },
@@ -198,12 +185,14 @@ export default function App() {
       ];
     });
     
-    setCurrentView('profile'); 
+    // ✅ लॉगिन होते ही सीधा क्लीनर (home) पेज खुलेगा
+    setCurrentView('home'); 
   };
 
+  // जब लॉगिन स्क्रीन के नीचे "Admin portal?" पर क्लिक करके लॉगिन करें
   const handleAdminDirectLogin = () => {
     setIsLoggedIn(true);
-    setIsAdminLoggedIn(true);
+    setIsAdminLoggedIn(false); // पहले पासवर्ड बॉक्स आएगा
     setProfile((prev) => ({
       ...prev,
       name: 'Sher Singh',
@@ -211,6 +200,12 @@ export default function App() {
       role: 'Admin',
       plan: 'PRO',
     }));
+    setCurrentView('admin');
+  };
+
+  // जब नेवबार/प्रोफ़ाइल ड्रॉपडाउन से "Admin" चुना जाए
+  const handleNavigateToAdminView = () => {
+    // अगर पहले से पासवर्ड डालकर अनलॉक नहीं किया है, तो पासवर्ड स्क्रीन दिखेगी
     setCurrentView('admin');
   };
 
@@ -230,7 +225,13 @@ export default function App() {
     >
       <Navbar
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onNavigate={(view) => {
+          if (view === 'admin') {
+            handleNavigateToAdminView();
+          } else {
+            setCurrentView(view);
+          }
+        }}
         currentLanguage={currentLanguage}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenSupportModal={() => setIsSupportModalOpen(true)}
@@ -251,10 +252,10 @@ export default function App() {
             onIncrementUsage={handleIncrementUsage}
             onFileCleaned={handleFileCleaned}
             onNavigateToPricing={() => setCurrentView(isLoggedIn ? 'profile' : 'auth')}
-            onNavigateToAdmin={isAdminLoggedIn ? () => setCurrentView('admin') : undefined}
+            onNavigateToAdmin={() => handleNavigateToAdminView()}
             onOpenSupportModal={() => setIsSupportModalOpen(true)}
             onSelectLanguage={setCurrentLanguage}
-            currentUser={currentUserData} // ✅ अब HomeCleaner को पता चलेगा कि यूज़र PRO है!
+            currentUser={currentUserData}
           />
         )}
 
@@ -265,7 +266,13 @@ export default function App() {
             onUpdateProfile={handleUpdateProfile}
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
-            onNavigate={setCurrentView}
+            onNavigate={(view) => {
+              if (view === 'admin') {
+                handleNavigateToAdminView();
+              } else {
+                setCurrentView(view);
+              }
+            }}
           />
         )}
 
@@ -274,7 +281,10 @@ export default function App() {
             t={t}
             isAdminLoggedIn={isAdminLoggedIn}
             onLoginAdmin={() => setIsAdminLoggedIn(true)}
-            onLogoutAdmin={() => setIsAdminLoggedIn(false)}
+            onLogoutAdmin={() => {
+              setIsAdminLoggedIn(false);
+              setCurrentView('home');
+            }}
             onReturnToHome={() => setCurrentView('home')}
             sales={sales}
             onAddSale={handleAddLiveSale}
