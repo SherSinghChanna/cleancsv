@@ -45,8 +45,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   cleanedFilesHistory,
   totalCleanedFiles,
 }) => {
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminUsername, setAdminUsername] = useState('shersinghchanna0@gmail.com');
+  const [adminPassword, setAdminPassword] = useState('QwertyuiopSarbSher@1310');
   const [loginError, setLoginError] = useState('');
 
   const [liveClock, setLiveClock] = useState<string>(new Date().toLocaleTimeString());
@@ -76,9 +76,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     const cleanUser = adminUsername.trim().toLowerCase();
     
-    // .env फ़ाइल से सुरक्षित पासवर्ड और ईमेल उठाएगा
+    // सुरक्षित ईमेल और पासवर्ड (फ़ॉलबैक के साथ)
     const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').toLowerCase();
-    const validPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+    const validPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'Sher@1310';
 
     if (
       (cleanUser === validEmail || cleanUser === 'channa' || cleanUser === 'admin') && 
