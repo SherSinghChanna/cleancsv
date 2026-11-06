@@ -78,7 +78,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     
     // सुरक्षित ईमेल और पासवर्ड (फ़ॉलबैक के साथ)
     const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').toLowerCase();
-    const validPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'Sher@1310';
+    const validPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'QwertyuiopSarbSher@1310S';
 
     if (
       (cleanUser === validEmail || cleanUser === 'channa' || cleanUser === 'admin') && 
