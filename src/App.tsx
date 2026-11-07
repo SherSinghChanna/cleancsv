@@ -39,7 +39,18 @@ const INITIAL_PROFILE: CustomerProfileData = {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<NavView>('home');
+  // 1. रिफ्रेश होने पर भी एडमिन व्यू याद रखें
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+  });
+
+  const [currentView, setCurrentView] = useState<NavView>(() => {
+    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+    const savedView = localStorage.getItem('cleancsv_current_view') as NavView;
+    if (savedAdmin && savedView === 'admin') return 'admin';
+    return savedView || 'home';
+  });
+
   const [currentLanguage, setCurrentLanguage] = useState<Language>('en');
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -50,23 +61,51 @@ export default function App() {
     return saved ? parseInt(saved, 10) : 0;
   });
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false); 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    return sessionStorage.getItem('cleancsv_admin_auth') === 'true';
+  // 2. लॉगिन और प्रोफाइल पर्सिस्टेंस
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+    const savedUser = localStorage.getItem('cleancsv_user_session');
+    return savedAdmin || Boolean(savedUser);
   }); 
-  
-  const [profile, setProfile] = useState<CustomerProfileData>(INITIAL_PROFILE);
+
+  const [profile, setProfile] = useState<CustomerProfileData>(() => {
+    const savedProfile = localStorage.getItem('cleancsv_user_profile');
+    if (savedProfile) {
+      try {
+        return JSON.parse(savedProfile);
+      } catch (e) {
+        // ignore
+      }
+    }
+    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+    if (savedAdmin) {
+      return {
+        ...INITIAL_PROFILE,
+        name: 'Sher Singh',
+        email: 'shersinghchanna0@gmail.com',
+        role: 'Admin',
+        plan: 'PRO',
+      };
+    }
+    return INITIAL_PROFILE;
+  });
+
   const [sales, setSales] = useState<Sale[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [cleanedFilesHistory, setCleanedFilesHistory] = useState<CleanedFile[]>([]);
 
   const t = translations[currentLanguage];
 
-  // 1. Supabase se Sales aur Users load karein
+  // व्यू बदलने पर उसे सेव करें
+  const handleNavigateView = (view: NavView) => {
+    setCurrentView(view);
+    localStorage.setItem('cleancsv_current_view', view);
+  };
+
+  // Supabase se Sales aur Users load karein
   useEffect(() => {
     const fetchSupabaseData = async () => {
       try {
-        // Sales Ledger load karein
         const { data: salesData } = await supabase
           .from('sales_ledger')
           .select('*')
@@ -84,7 +123,6 @@ export default function App() {
           setSales(mappedSales);
         }
 
-        // Profiles / Users load karein
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('*')
@@ -134,7 +172,7 @@ export default function App() {
     }
 
     if (!isLoggedIn && freeFilesUsed >= 3) {
-      setCurrentView('auth');
+      handleNavigateView('auth');
       return;
     }
 
@@ -154,15 +192,16 @@ export default function App() {
           ? { ...item, count: item.count + 1 }
           : item
       );
-      return {
+      const updated = {
         ...prev,
         totalCleanedFiles: updatedCount,
         monthlyStats: updatedMonthly,
       };
+      localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
+      return updated;
     });
   };
 
-  // ✅ Customer Purchase: Supabase me permanent insert
   const handlePlanPurchased = async (planName: any, price: number) => {
     const isProPlan = planName !== 'BASIC';
     const userEmail = profile.email || 'customer@example.com';
@@ -179,7 +218,6 @@ export default function App() {
     };
     setSales((prev) => [newSale, ...prev]);
 
-    // Supabase DB me save
     try {
       await supabase.from('sales_ledger').insert([{
         user_email: userEmail,
@@ -192,10 +230,11 @@ export default function App() {
     }
 
     if (isProPlan) {
-      setProfile((prev) => ({
-        ...prev,
-        plan: 'PRO',
-      }));
+      setProfile((prev) => {
+        const updated = { ...prev, plan: 'PRO' as const };
+        localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
+        return updated;
+      });
       setUsers((prev) => prev.map(u => {
         if (u.email.toLowerCase() === profile.email.toLowerCase()) {
           return { ...u, userType: 'Premium' };
@@ -203,7 +242,6 @@ export default function App() {
         return u;
       }));
 
-      // Supabase profiles update
       try {
         await supabase
           .from('profiles')
@@ -215,7 +253,6 @@ export default function App() {
     }
   };
 
-  // ✅ Admin Dashboard se Live Sale Record: Supabase me insert
   const handleAddLiveSale = async (newSale: Sale) => {
     setSales((prev) => [newSale, ...prev]);
 
@@ -232,15 +269,16 @@ export default function App() {
   };
 
   const handleUpdateProfile = (updated: Partial<CustomerProfileData>) => {
-    setProfile((prev) => ({
-      ...prev,
-      ...updated,
-    }));
+    setProfile((prev) => {
+      const full = { ...prev, ...updated };
+      localStorage.setItem('cleancsv_user_profile', JSON.stringify(full));
+      return full;
+    });
   };
 
-  // Login handler
   const handleLoginSuccess = (name: string, email: string) => {
     setIsLoggedIn(true);
+    localStorage.setItem('cleancsv_user_session', 'true');
     
     const cleanEmail = email.trim().toLowerCase();
     const isOwner = cleanEmail === 'cleancsvglobal@gmail.com' || cleanEmail === 'shersinghchanna0@gmail.com';
@@ -248,13 +286,21 @@ export default function App() {
     const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
     const existingPlan = (isOwner || existing?.userType === 'Premium') ? 'PRO' : 'BASIC';
 
-    setProfile((prev) => ({
-      ...prev,
+    const newProfile: CustomerProfileData = {
+      ...profile,
       name: name || (isOwner ? 'Sher Singh' : 'Customer'),
       email: email,
       role: isOwner ? 'Admin' : 'Customer',
       plan: existingPlan,
-    }));
+    };
+
+    setProfile(newProfile);
+    localStorage.setItem('cleancsv_user_profile', JSON.stringify(newProfile));
+
+    if (isOwner) {
+      setIsAdminLoggedIn(true);
+      localStorage.setItem('cleancsv_admin_logged_in', 'true');
+    }
 
     setUsers((prev) => {
       if (prev.some((u) => u.email.toLowerCase() === cleanEmail)) {
@@ -273,29 +319,36 @@ export default function App() {
       ];
     });
     
-    setCurrentView('home'); 
+    handleNavigateView('home'); 
   };
 
   const handleAdminDirectLogin = () => {
     setIsLoggedIn(true);
-    setProfile((prev) => ({
-      ...prev,
+    setIsAdminLoggedIn(true);
+    localStorage.setItem('cleancsv_admin_logged_in', 'true');
+    const adminProf: CustomerProfileData = {
+      ...profile,
       name: 'Sher Singh',
       email: 'shersinghchanna0@gmail.com',
       role: 'Admin',
       plan: 'PRO',
-    }));
-    setCurrentView('admin');
+    };
+    setProfile(adminProf);
+    localStorage.setItem('cleancsv_user_profile', JSON.stringify(adminProf));
+    handleNavigateView('admin');
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setIsAdminLoggedIn(false);
-    sessionStorage.removeItem('cleancsv_admin_auth');
+    localStorage.removeItem('cleancsv_admin_logged_in');
+    localStorage.removeItem('cleancsv_user_session');
+    localStorage.removeItem('cleancsv_user_profile');
+    localStorage.removeItem('cleancsv_current_view');
+    localStorage.removeItem('cleancsv_freeFilesUsed');
     setProfile(INITIAL_PROFILE); 
     setFreeFilesUsed(0);
-    localStorage.removeItem('cleancsv_freeFilesUsed');
-    setCurrentView('home');
+    handleNavigateView('home');
   };
 
   return (
@@ -307,9 +360,9 @@ export default function App() {
         currentView={currentView}
         onNavigate={(view) => {
           if (view === 'admin') {
-            setCurrentView('admin');
+            handleNavigateView('admin');
           } else {
-            setCurrentView(view);
+            handleNavigateView(view);
           }
         }}
         currentLanguage={currentLanguage}
@@ -320,7 +373,8 @@ export default function App() {
         isAdminLoggedIn={isAdminLoggedIn}
         onLogoutAdmin={() => {
           setIsAdminLoggedIn(false);
-          sessionStorage.removeItem('cleancsv_admin_auth');
+          localStorage.removeItem('cleancsv_admin_logged_in');
+          handleNavigateView('home');
         }}
         userName={profile.name}
         userAvatar={profile.avatar}
@@ -334,8 +388,8 @@ export default function App() {
             freeFilesUsed={freeFilesUsed}
             onIncrementUsage={handleIncrementUsage}
             onFileCleaned={handleFileCleaned}
-            onNavigateToPricing={() => setCurrentView(isLoggedIn ? 'profile' : 'auth')}
-            onNavigateToAdmin={() => setCurrentView('admin')}
+            onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')}
+            onNavigateToAdmin={() => handleNavigateView('admin')}
             onOpenSupportModal={() => setIsSupportModalOpen(true)}
             onSelectLanguage={setCurrentLanguage}
             currentUser={currentUserData}
@@ -349,7 +403,7 @@ export default function App() {
             onUpdateProfile={handleUpdateProfile}
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
-            onNavigate={(view) => setCurrentView(view)}
+            onNavigate={(view) => handleNavigateView(view)}
           />
         )}
 
@@ -359,14 +413,14 @@ export default function App() {
             isAdminLoggedIn={isAdminLoggedIn}
             onLoginAdmin={() => {
               setIsAdminLoggedIn(true);
-              sessionStorage.setItem('cleancsv_admin_auth', 'true');
+              localStorage.setItem('cleancsv_admin_logged_in', 'true');
             }}
             onLogoutAdmin={() => {
               setIsAdminLoggedIn(false);
-              sessionStorage.removeItem('cleancsv_admin_auth');
-              setCurrentView('home');
+              localStorage.removeItem('cleancsv_admin_logged_in');
+              handleNavigateView('home');
             }}
-            onReturnToHome={() => setCurrentView('home')}
+            onReturnToHome={() => handleNavigateView('home')}
             sales={sales}
             onAddSale={handleAddLiveSale}
             users={users}
