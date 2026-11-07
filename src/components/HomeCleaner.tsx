@@ -598,7 +598,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               <h3 className="font-bold text-slate-900 text-lg">
                 {footerModal === 'venue' && 'Company Venue & Operations'}
                 {footerModal === 'privacy' && 'Privacy Standards & Policy'}
-                {footerModal === 'terms' && 'Terms of Service'}
+                {footerModal === 'terms' && 'Terms of Service & Data Protection'}
                 {footerModal === 'sla' && '24/7 SLA for PRO'}
               </h3>
               <button 
@@ -612,18 +612,26 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
             <div className="text-xs text-slate-600 space-y-3 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
               {footerModal === 'venue' && (
-                <p>
-                  CleanCSV operates as a distributed, privacy-first cloud platform. All operations adhere strictly to local and international data sovereignty and browser-side client processing standards.
-                </p>
+                <>
+                  <p>
+                    <strong>Global Operational Infrastructure:</strong> CleanCSV operates as a distributed, privacy-first web utility platform. Our client-side architecture guarantees that data manipulation routines are executed locally on the user&apos;s device without external ingestion.
+                  </p>
+                  <p>
+                    For corporate correspondence, partnership inquiries, or verification, reach our operational desk at <a href="mailto:support@cleancsv.online" className="text-indigo-600 underline font-mono">support@cleancsv.online</a>.
+                  </p>
+                </>
               )}
 
               {footerModal === 'privacy' && (
                 <>
                   <p>
-                    <strong>Zero-Retention Guarantee:</strong> Your data security is our core foundation. CleanCSV processes file sanitation completely in client-side ephemeral memory.
+                    <strong>1. Zero Data Retention:</strong> CleanCSV operates strictly on client-side ephemeral memory. Uploaded files, headers, and row contents are never transmitted to, recorded by, or stored across remote servers or databases.
                   </p>
                   <p>
-                    No CSV records, customer contact lists, or internal metrics uploaded to our tools are ever stored, indexed, cached, or transferred to third-party databases.
+                    <strong>2. Local Storage Usage:</strong> We do not track personal identifying information across external marketing networks. Local browser storage is strictly utilized to store your interface settings (such as language preference and cleaning toggles).
+                  </p>
+                  <p>
+                    <strong>3. Immediate Disposal:</strong> Closing the browser tab or hitting the delete button permanently flushes the dataset from working system RAM.
                   </p>
                 </>
               )}
@@ -631,10 +639,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               {footerModal === 'terms' && (
                 <>
                   <p>
-                    By using CleanCSV, you agree that file cleansing is provided on an &quot;as-is&quot; basis. Users retain 100% intellectual property rights over their data.
+                    <strong>1. Service &quot;As-Is&quot; & Backup Requirement:</strong> CleanCSV provides file sanitation algorithms on an &quot;as-is&quot; basis. While every effort is made to maintain formatting fidelity, users are strictly obligated to maintain independent backup copies of all source files prior to transformation. CleanCSV disclaims liability for data truncation, corruption, or unintended cell alterations.
                   </p>
                   <p>
-                    Free plans include standard limits. Pro tier features include unlimited usage, zero log storage, and priority support.
+                    <strong>2. User Ownership:</strong> Users retain full ownership, intellectual property rights, and confidentiality over any data ingested through our client tools.
+                  </p>
+                  <p>
+                    <strong>3. Subscriptions & Refund Terms:</strong> PRO upgrades activate immediate, perpetual, high-bandwidth processing capabilities. Digital services and access rights delivered immediately upon transaction completion are non-refundable, except where required by applicable statutory consumer laws.
                   </p>
                 </>
               )}
@@ -642,10 +653,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               {footerModal === 'sla' && (
                 <>
                   <p>
-                    <strong>Priority Enterprise Support:</strong> PRO subscribers get access to direct priority routing with a guaranteed response window under 24 hours.
+                    <strong>Priority SLA Commitment:</strong> Active PRO plan holders receive priority ticket routing. Our administrative engineering team monitors delivery channels to guarantee a response window under 24 business hours.
                   </p>
                   <p>
-                    Contact us at <a href="mailto:support@cleancsv.online" className="text-indigo-600 font-semibold underline">support@cleancsv.online</a> for priority assistance.
+                    Direct escalation channel: <a href="mailto:support@cleancsv.online" className="text-indigo-600 font-semibold underline">support@cleancsv.online</a>.
                   </p>
                 </>
               )}
