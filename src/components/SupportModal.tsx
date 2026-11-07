@@ -72,7 +72,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose, t }
               <Mail className="w-4 h-4" />
               <span className="text-xs font-semibold">{emailSupportText}</span>
             </div>
-            <p className="text-xs font-medium text-slate-700 truncate">cleancsvglobal@gmail.com</p>
+            <p className="text-xs font-medium text-slate-700 truncate">support@cleancsv.online</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Average reply: &lt; 15 mins</p>
           </div>
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">

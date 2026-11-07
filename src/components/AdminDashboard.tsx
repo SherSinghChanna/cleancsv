@@ -90,7 +90,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const isUserValid = (
       cleanUser === validEmail || 
-      cleanUser === 'cleancsvglobal@gmail.com' ||
+      cleanUser === 'support@cleancsv.online' ||
       cleanUser === 'shersinghchanna0@gmail.com' ||
       cleanUser === 'channa' || 
       cleanUser === 'admin'

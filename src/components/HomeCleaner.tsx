@@ -582,7 +582,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               <h5 className="font-bold text-slate-900 mb-3 text-sm">{t.contactLabel}</h5>
               <ul className="space-y-2 text-slate-600">
                 <li><button onClick={onOpenSupportModal} className="hover:text-indigo-600 font-semibold transition-colors text-left cursor-pointer">{t.contactUs}</button></li>
-                <li><a href="mailto:cleancsvglobal@gmail.com" className="text-slate-500 hover:text-indigo-600 font-mono transition-colors text-left cursor-pointer">cleancsvglobal@gmail.com</a></li>
+                <li><a href="mailto:support@cleancsv.online" className="text-slate-500 hover:text-indigo-600 font-mono transition-colors text-left cursor-pointer">support@cleancsv.online</a></li>
                 <li><button onClick={() => setFooterModal('sla')} className="text-emerald-700 hover:underline font-semibold text-left cursor-pointer">{t.sla247}</button></li>
               </ul>
             </div>

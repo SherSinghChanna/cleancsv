@@ -164,7 +164,7 @@ export default function App() {
     loggedInAppUser?.userType === 'Premium' ||
     loggedInAppUser?.userType === 'Admin' ||
     profile.email.toLowerCase() === 'shersinghchanna0@gmail.com' ||
-    profile.email.toLowerCase() === 'cleancsvglobal@gmail.com'
+    profile.email.toLowerCase() === 'support@cleancsv.online'
   );
 
   const currentUserData = {
@@ -303,7 +303,7 @@ export default function App() {
     localStorage.setItem('cleancsv_user_session', 'true');
     
     const cleanEmail = email.trim().toLowerCase();
-    const isOwner = cleanEmail === 'cleancsvglobal@gmail.com' || cleanEmail === 'shersinghchanna0@gmail.com';
+    const isOwner = cleanEmail === 'support@cleancsv.online' || cleanEmail === 'shersinghchanna0@gmail.com';
 
     const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
     const existingPlan = (isOwner || existing?.userType === 'Premium') ? 'PRO' : 'BASIC';
