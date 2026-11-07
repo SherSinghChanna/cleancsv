@@ -57,6 +57,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // ऑटो-लॉगिन चेक (पेज रिफ्रेश होने पर लॉगआउट रोकने के लिए)
+  useEffect(() => {
+    const savedAdminSession = localStorage.getItem('cleancsv_admin_logged_in');
+    if (savedAdminSession === 'true' && !isAdminLoggedIn) {
+      onLoginAdmin();
+    }
+  }, [isAdminLoggedIn, onLoginAdmin]);
+
   const [activeTab, setActiveTab] = useState<'sales' | 'operations'>('sales');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -77,23 +85,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const cleanUser = adminUsername.trim().toLowerCase();
     const enteredPass = adminPassword.trim();
     
-    // सुरक्षित ईमेल और पासवर्ड चेक
     const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').trim().toLowerCase();
     const validPassword = (import.meta.env.VITE_ADMIN_PASSWORD || 'QwertyuiopSarbSher@1310').trim();
 
     const isUserValid = (
       cleanUser === validEmail || 
+      cleanUser === 'cleancsvglobal@gmail.com' ||
+      cleanUser === 'shersinghchanna0@gmail.com' ||
       cleanUser === 'channa' || 
-      cleanUser === 'admin' ||
-      cleanUser === 'cleancsvglobal@gmail.com'
+      cleanUser === 'admin'
     );
 
     if (isUserValid && enteredPass === validPassword) {
       setLoginError('');
+      localStorage.setItem('cleancsv_admin_logged_in', 'true');
       onLoginAdmin();
     } else {
       setLoginError('Access Denied: Invalid Admin Identifier or Password.');
     }
+  };
+
+  const handleLogoutWithStorage = () => {
+    localStorage.removeItem('cleancsv_admin_logged_in');
+    onLogoutAdmin();
   };
 
   const handleToggleUserStatus = (userId: string) => {
@@ -329,7 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
 
             <button
-              onClick={onLogoutAdmin}
+              onClick={handleLogoutWithStorage}
               className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
