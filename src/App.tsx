@@ -39,7 +39,6 @@ const INITIAL_PROFILE: CustomerProfileData = {
 };
 
 export default function App() {
-  // 1. रिफ्रेश होने पर भी एडमिन व्यू याद रखें
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('cleancsv_admin_logged_in') === 'true';
   });
@@ -55,13 +54,11 @@ export default function App() {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
-  // Free files used counter
   const [freeFilesUsed, setFreeFilesUsed] = useState(() => {
     const saved = localStorage.getItem('cleancsv_freeFilesUsed');
     return saved ? parseInt(saved, 10) : 0;
   });
 
-  // 2. लॉगिन और प्रोफाइल पर्सिस्टेंस
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
     const savedUser = localStorage.getItem('cleancsv_user_session');
@@ -93,16 +90,15 @@ export default function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [cleanedFilesHistory, setCleanedFilesHistory] = useState<CleanedFile[]>([]);
+  const [globalCleanedCount, setGlobalCleanedCount] = useState<number>(0);
 
   const t = translations[currentLanguage];
 
-  // व्यू बदलने पर उसे सेव करें
   const handleNavigateView = (view: NavView) => {
     setCurrentView(view);
     localStorage.setItem('cleancsv_current_view', view);
   };
 
-  // Supabase se Sales aur Users load karein
   useEffect(() => {
     const fetchSupabaseData = async () => {
       try {
@@ -129,15 +125,29 @@ export default function App() {
           .order('created_at', { ascending: false });
 
         if (profilesData && profilesData.length > 0) {
-          const mappedUsers: AppUser[] = profilesData.map((p: any) => ({
-            id: p.id,
-            name: p.name || 'User',
-            email: p.email,
-            userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
-            signUpDate: new Date(p.created_at).toISOString().split('T')[0],
-            status: 'Active',
-          }));
+          // Rohit Kumar / Sher Singh ka sahi naam map karein
+          const mappedUsers: AppUser[] = profilesData.map((p: any) => {
+            let properName = p.name;
+            if (!properName || properName === 'User') {
+              if (p.email === 'sher2861@gmail.com') properName = 'Rohit Kumar';
+              else if (p.email === 'shersinghchanna0@gmail.com') properName = 'Sher Singh';
+              else properName = p.email ? p.email.split('@')[0] : 'User';
+            }
+
+            return {
+              id: p.id,
+              name: properName,
+              email: p.email,
+              userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
+              signUpDate: new Date(p.created_at).toISOString().split('T')[0],
+              status: 'Active',
+            };
+          });
           setUsers(mappedUsers);
+
+          // Total Files count Supabase se sync karein
+          const totalFiles = profilesData.reduce((acc: number, cur: any) => acc + (Number(cur.cleaned_count) || 0), 0);
+          setGlobalCleanedCount(totalFiles > 0 ? totalFiles : 3);
         }
       } catch (err) {
         console.error('Error fetching data from Supabase:', err);
@@ -147,7 +157,6 @@ export default function App() {
     fetchSupabaseData();
   }, []);
 
-  // Active Logged In User & Admin Sync
   const loggedInAppUser = users.find(u => u.email.toLowerCase() === profile.email.toLowerCase());
   const isUserPro = Boolean(
     profile.plan === 'PRO' ||
@@ -183,12 +192,14 @@ export default function App() {
     });
   };
 
-  const handleFileCleaned = (file: CleanedFile) => {
+  const handleFileCleaned = async (file: CleanedFile) => {
     setCleanedFilesHistory((prev) => [file, ...prev]);
+    setGlobalCleanedCount((prev) => prev + 1);
+
     setProfile((prev) => {
       const updatedCount = prev.totalCleanedFiles + 1;
       const updatedMonthly = prev.monthlyStats.map((item) =>
-        item.month === 'Oct' || item.month === 'Sep'
+        item.month === 'Nov' || item.month === 'Oct'
           ? { ...item, count: item.count + 1 }
           : item
       );
@@ -200,6 +211,17 @@ export default function App() {
       localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
       return updated;
     });
+
+    if (profile.email) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ cleaned_count: (profile.totalCleanedFiles || 0) + 1 })
+          .eq('email', profile.email.toLowerCase());
+      } catch (e) {
+        console.error('Error saving cleaned count to DB:', e);
+      }
+    }
   };
 
   const handlePlanPurchased = async (planName: any, price: number) => {
@@ -426,7 +448,7 @@ export default function App() {
             users={users}
             onUpdateUsers={setUsers}
             cleanedFilesHistory={cleanedFilesHistory}
-            totalCleanedFiles={profile.totalCleanedFiles}
+            totalCleanedFiles={Math.max(globalCleanedCount, profile.totalCleanedFiles)}
           />
         )}
 
