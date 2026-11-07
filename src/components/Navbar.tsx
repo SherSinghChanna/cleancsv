@@ -13,7 +13,7 @@ import {
   FileSpreadsheet, 
   Crown,
   CreditCard,
-  Share2 // ✅ Imported Share Icon
+  Share2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -67,7 +67,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  const isAdmin = userName === 'Sher Singh' || userName.toLowerCase().includes('sher');
+  // ✅ Admin check covers both name, email hint, and admin session
+  const isAdmin = isAdminLoggedIn || userName === 'Sher Singh' || userName.toLowerCase().includes('sher');
 
   // ✅ Share Website Function
   const handleShare = async () => {
@@ -75,16 +76,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (navigator.share) {
         await navigator.share({
           title: 'CleanCSV',
-          text: 'Check out this amazing CSV cleaner! It makes data cleaning super easy.',
-          url: window.location.href,
+          text: 'Check out CleanCSV - Clean, format, and fix messy CSV datasets directly in your browser with zero data logging.',
+          url: 'https://cleancsv.online',
         });
       } else {
-        // Fallback for browsers that don't support navigator.share
-        await navigator.clipboard.writeText(window.location.href);
-        alert('Website link copied to clipboard! You can now share it.');
+        await navigator.clipboard.writeText('https://cleancsv.online');
+        alert('Website link copied to clipboard! (https://cleancsv.online)');
       }
     } catch (err) {
-      console.log('Share failed:', err);
+      console.log('Share dismissed or failed:', err);
     }
   };
 
@@ -96,6 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Wordmark (Left) */}
           <div className="flex items-center gap-6 shrink-0">
             <button
+              type="button"
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-2 group text-left cursor-pointer shrink-0"
             >
@@ -110,6 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Desktop Center Navigation Links */}
             <nav className="hidden md:flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => handleNavClick('home')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   currentView === 'home'
@@ -120,9 +122,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {t.homeTab}
               </button>
 
-              {/* ✅ Pricing Link Only if Logged In */}
+              {/* Pricing Link */}
               {isLoggedIn && (
                 <button
+                  type="button"
                   onClick={() => handleNavClick('profile')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                     currentView === 'profile'
@@ -141,6 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             
             {/* Language Selector Button */}
             <button
+              type="button"
               onClick={onOpenLanguageModal}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer shrink-0"
               title="Change Language"
@@ -151,8 +155,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
-            {/* ✅ Share Website Button (Desktop) */}
+            {/* Share Website Button (Desktop) */}
             <button
+              type="button"
               onClick={handleShare}
               className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer shrink-0"
               title="Share this website"
@@ -165,6 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isLoggedIn ? (
               <div className="relative shrink-0" ref={userMenuRef}>
                 <button
+                  type="button"
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-semibold transition-all border border-slate-200/80 shadow-2xs cursor-pointer"
                 >
@@ -210,7 +216,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             {isAdmin && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
                           </div>
                           <div className="text-[11px] text-slate-500 font-mono truncate">
-                            {isAdmin ? 'shersinghchanna0@gmail.com' : 'customer@example.com'}
+                            {isAdmin ? 'shersinghchanna0@gmail.com' : 'support@cleancsv.online'}
                           </div>
                           <div className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold rounded-full uppercase tracking-wider">
                             {isAdmin ? 'YEARLY PRO · Active' : 'BASIC · Active'}
@@ -222,6 +228,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {/* Navigation Items */}
                     <div className="p-1 space-y-0.5 text-xs text-slate-700">
                       <button
+                        type="button"
                         onClick={() => handleNavClick('home')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
                           currentView === 'home' ? 'bg-slate-100 font-bold text-slate-900' : 'hover:bg-slate-50'
@@ -229,12 +236,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
                         <div className="flex-1">
-                          <div>{t.homeTab}</div>
+                          <div className="font-semibold text-slate-900">{t.homeTab}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Fast, zero-retention CSV tool</div>
                         </div>
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => handleNavClick('profile')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
                           currentView === 'profile' ? 'bg-slate-100 font-bold text-slate-900' : 'hover:bg-slate-50'
@@ -242,14 +250,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <CreditCard className="w-4 h-4 text-indigo-600 shrink-0" />
                         <div className="flex-1">
-                          <div>{t.profileTab} & {t.upgradePlans}</div>
+                          <div className="font-semibold text-slate-900">{t.profileTab} & {t.upgradePlans}</div>
                           <div className="text-[10px] text-slate-400 font-normal">Subscription, billing & metrics</div>
                         </div>
                       </button>
 
-                      {/* ✅ Admin Button Only Shows for Sher Singh */}
+                      {/* Admin Button Shows for Sher Singh or Admin */}
                       {isAdmin && (
                         <button
+                          type="button"
                           onClick={() => handleNavClick('admin')}
                           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
                             currentView === 'admin' ? 'bg-indigo-50 font-bold text-indigo-900' : 'hover:bg-slate-50'
@@ -258,7 +267,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
-                              <span>{t.adminTab}</span>
+                              <span className="font-semibold text-slate-900">{t.adminTab}</span>
                               <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded">Owner Only</span>
                             </div>
                             <div className="text-[10px] text-slate-400 font-normal">Private revenue & users console</div>
@@ -267,6 +276,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       )}
 
                       <button
+                        type="button"
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           onOpenSupportModal();
@@ -275,7 +285,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
                         <div className="flex-1">
-                          <div>{t.support}</div>
+                          <div className="font-semibold text-slate-900">{t.support}</div>
                           <div className="text-[10px] text-slate-400 font-normal">24/7 Priority SLA assistance</div>
                         </div>
                       </button>
@@ -284,6 +294,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {/* Footer / Log Out */}
                     <div className="p-1 pt-1.5 border-t border-slate-100">
                       <button
+                        type="button"
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           onToggleLogin();
@@ -300,6 +311,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             ) : currentView === 'admin' && isAdminLoggedIn ? (
               <button
+                type="button"
                 onClick={onLogoutAdmin}
                 className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-2xs shrink-0 cursor-pointer"
               >
@@ -308,12 +320,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <div className="flex items-center gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => handleNavClick('auth')}
                   className="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   {t.login}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('auth')}
                   className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs hover:shadow transition-all whitespace-nowrap cursor-pointer"
                 >
@@ -324,6 +338,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Mobile Hamburger Menu Toggle */}
             <button
+              type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
               aria-label="Toggle Menu"
@@ -340,8 +355,9 @@ export const Navbar: React.FC<NavbarProps> = ({
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1 shadow-lg animate-in slide-in-from-top-2 duration-150">
           <button
+            type="button"
             onClick={() => handleNavClick('home')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer ${
               currentView === 'home' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -349,11 +365,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{t.homeTab}</span>
           </button>
 
-          {/* ✅ Mobile Pricing Link Only if Logged In */}
           {isLoggedIn && (
             <button
+              type="button"
               onClick={() => handleNavClick('profile')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer ${
                 currentView === 'profile' ? 'bg-indigo-50 text-indigo-800' : 'text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -362,10 +378,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {isAdmin && isAdminLoggedIn && (
+          {isAdmin && (
             <button
+              type="button"
               onClick={() => handleNavClick('admin')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-bold ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-bold cursor-pointer ${
                 currentView === 'admin' 
                   ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' 
                   : 'bg-indigo-50/70 text-indigo-800 hover:bg-indigo-100 border border-indigo-200/60'
@@ -380,22 +397,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           <button
+            type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
               onOpenSupportModal();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
             <HelpCircle className="w-4 h-4 text-slate-500" />
             <span>{t.support}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
               onOpenLanguageModal();
             }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <Globe className="w-4 h-4 text-indigo-600" />
@@ -404,13 +423,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{currentLangObj.flag}</span>
           </button>
 
-          {/* ✅ Mobile Share Button */}
           <button
+            type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
               handleShare();
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
             <Share2 className="w-4 h-4 text-indigo-600" />
             <span>Share Website</span>
@@ -419,11 +438,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isLoggedIn ? (
             <div className="pt-2 border-t border-slate-100">
               <button
+                type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
                   onToggleLogin();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>{t.logout}</span>
@@ -432,14 +452,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <div className="pt-2 border-t border-slate-100 flex gap-2">
               <button
+                type="button"
                 onClick={() => handleNavClick('auth')}
-                className="flex-1 py-2 text-center text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50"
+                className="flex-1 py-2 text-center text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
               >
                 {t.login}
               </button>
               <button
+                type="button"
                 onClick={() => handleNavClick('auth')}
-                className="flex-1 py-2 text-center text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
+                className="flex-1 py-2 text-center text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg cursor-pointer"
               >
                 {t.getStarted}
               </button>
