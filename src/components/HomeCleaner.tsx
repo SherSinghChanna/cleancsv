@@ -32,7 +32,7 @@ interface HomeCleanerProps {
   onNavigateToAdmin?: () => void;
   onOpenSupportModal: () => void;
   onSelectLanguage: (lang: Language) => void;
-  currentUser?: any; // ✅ PRO/ADMIN जाँचने के लिए यूज़र प्रॉप
+  currentUser?: any;
 }
 
 export const HomeCleaner: React.FC<HomeCleanerProps> = ({
@@ -46,7 +46,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   onSelectLanguage,
   currentUser,
 }) => {
-  // ✅ Check if User is PRO / Admin (Bypass all limits)
   const isUnlimitedUser = Boolean(
     currentUser?.is_pro === true ||
     currentUser?.subscription_plan === 'PRO' ||
@@ -159,7 +158,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const executeClean = (rawText: string, fileName: string) => {
-    // ✅ अगर यूज़र PRO / Admin नहीं है, सिर्फ तभी 3 फ़ाइल की रोक लगेगी
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       onNavigateToPricing();
       return;
@@ -201,7 +199,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       setCleanedFile(resultFile);
       setIsProcessing(false);
 
-      // सिर्फ Free यूज़र का ही काउंटर बढ़ेगा
       if (!isUnlimitedUser) {
         onIncrementUsage();
       }
@@ -433,7 +430,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             </div>
           )}
 
-          {/* ✅ नीचे वाली पट्टी: PRO के लिए अनलिमिटेड बैज, FREE के लिए 3/3 काउंटर */}
           <div className="mt-8 pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-2 font-medium">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -508,7 +504,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input type="text" placeholder="Search preview rows..." value={previewSearch} onChange={(e) => setPreviewSearch(e.target.value)} className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-emerald-500 w-48 sm:w-64" />
                 </div>
-                <button onClick={() => setShowPreviewModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+                <button onClick={() => setShowPreviewModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -546,10 +542,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 Showing {Math.min(filteredRows.length, 50)} of {cleanedFile.rows.length} cleaned records
               </span>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShowPreviewModal(false)} className="px-4 py-1.5 font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+                <button onClick={() => setShowPreviewModal(false)} className="px-4 py-1.5 font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer">
                   Close
                 </button>
-                <button onClick={handleDownload} className="px-4 py-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1.5">
+                <button onClick={handleDownload} className="px-4 py-1.5 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1.5 cursor-pointer">
                   <Download className="w-3.5 h-3.5" />
                   <span>Download Cleaned File</span>
                 </button>
@@ -566,24 +562,24 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             <div>
               <h5 className="font-bold text-slate-900 mb-3 text-sm">{t.companyLabel}</h5>
               <ul className="space-y-2 text-slate-600">
-                <li><button onClick={() => setFooterModal('venue')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.companyVenue}</button></li>
-                <li><button onClick={() => setFooterModal('privacy')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.privacyStandards}</button></li>
+                <li><button type="button" onClick={() => setFooterModal('venue')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.companyVenue}</button></li>
+                <li><button type="button" onClick={() => setFooterModal('privacy')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.privacyStandards}</button></li>
               </ul>
             </div>
             <div>
               <h5 className="font-bold text-slate-900 mb-3 text-sm">{t.legalLabel}</h5>
               <ul className="space-y-2 text-slate-600">
-                <li><button onClick={() => setFooterModal('privacy')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.privacyPolicy}</button></li>
-                <li><button onClick={onNavigateToPricing} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.pricingTerms}</button></li>
-                <li><button onClick={() => setFooterModal('terms')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.termsOfService}</button></li>
+                <li><button type="button" onClick={() => setFooterModal('privacy')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.privacyPolicy}</button></li>
+                <li><button type="button" onClick={onNavigateToPricing} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.pricingTerms}</button></li>
+                <li><button type="button" onClick={() => setFooterModal('terms')} className="hover:text-indigo-600 transition-colors text-left cursor-pointer">{t.termsOfService}</button></li>
               </ul>
             </div>
             <div>
               <h5 className="font-bold text-slate-900 mb-3 text-sm">{t.contactLabel}</h5>
               <ul className="space-y-2 text-slate-600">
-                <li><button onClick={onOpenSupportModal} className="hover:text-indigo-600 font-semibold transition-colors text-left cursor-pointer">{t.contactUs}</button></li>
+                <li><button type="button" onClick={onOpenSupportModal} className="hover:text-indigo-600 font-semibold transition-colors text-left cursor-pointer">{t.contactUs}</button></li>
                 <li><a href="mailto:support@cleancsv.online" className="text-slate-500 hover:text-indigo-600 font-mono transition-colors text-left cursor-pointer">support@cleancsv.online</a></li>
-                <li><button onClick={() => setFooterModal('sla')} className="text-emerald-700 hover:underline font-semibold text-left cursor-pointer">{t.sla247}</button></li>
+                <li><button type="button" onClick={() => setFooterModal('sla')} className="text-emerald-700 hover:underline font-semibold text-left cursor-pointer">{t.sla247}</button></li>
               </ul>
             </div>
             <div>
@@ -593,6 +589,81 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* Footer Informational Modals */}
+      {footerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 className="font-bold text-slate-900 text-lg">
+                {footerModal === 'venue' && 'Company Venue & Operations'}
+                {footerModal === 'privacy' && 'Privacy Standards & Policy'}
+                {footerModal === 'terms' && 'Terms of Service'}
+                {footerModal === 'sla' && '24/7 SLA for PRO'}
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setFooterModal(null)} 
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600 space-y-3 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
+              {footerModal === 'venue' && (
+                <p>
+                  CleanCSV operates as a distributed, privacy-first cloud platform. All operations adhere strictly to local and international data sovereignty and browser-side client processing standards.
+                </p>
+              )}
+
+              {footerModal === 'privacy' && (
+                <>
+                  <p>
+                    <strong>Zero-Retention Guarantee:</strong> Your data security is our core foundation. CleanCSV processes file sanitation completely in client-side ephemeral memory.
+                  </p>
+                  <p>
+                    No CSV records, customer contact lists, or internal metrics uploaded to our tools are ever stored, indexed, cached, or transferred to third-party databases.
+                  </p>
+                </>
+              )}
+
+              {footerModal === 'terms' && (
+                <>
+                  <p>
+                    By using CleanCSV, you agree that file cleansing is provided on an &quot;as-is&quot; basis. Users retain 100% intellectual property rights over their data.
+                  </p>
+                  <p>
+                    Free plans include standard limits. Pro tier features include unlimited usage, zero log storage, and priority support.
+                  </p>
+                </>
+              )}
+
+              {footerModal === 'sla' && (
+                <>
+                  <p>
+                    <strong>Priority Enterprise Support:</strong> PRO subscribers get access to direct priority routing with a guaranteed response window under 24 hours.
+                  </p>
+                  <p>
+                    Contact us at <a href="mailto:support@cleancsv.online" className="text-indigo-600 font-semibold underline">support@cleancsv.online</a> for priority assistance.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setFooterModal(null)}
+                className="px-5 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
