@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavView, Language, CustomerProfileData, Sale, AppUser, CleanedFile } from './types';
 import { translations } from './translations';
 import { Navbar } from './components/Navbar';
@@ -8,6 +8,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AuthSplitScreen } from './components/AuthSplitScreen';
 import { LanguageModal } from './components/LanguageModal';
 import { SupportModal } from './components/SupportModal';
+import { supabase } from './lib/supabase';
 
 const INITIAL_PROFILE: CustomerProfileData = {
   name: '',
@@ -50,7 +51,9 @@ export default function App() {
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState(false); 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false); 
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    return sessionStorage.getItem('cleancsv_admin_auth') === 'true';
+  }); 
   
   const [profile, setProfile] = useState<CustomerProfileData>(INITIAL_PROFILE);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -58,6 +61,53 @@ export default function App() {
   const [cleanedFilesHistory, setCleanedFilesHistory] = useState<CleanedFile[]>([]);
 
   const t = translations[currentLanguage];
+
+  // 1. Supabase se Sales aur Users load karein
+  useEffect(() => {
+    const fetchSupabaseData = async () => {
+      try {
+        // Sales Ledger load karein
+        const { data: salesData } = await supabase
+          .from('sales_ledger')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (salesData && salesData.length > 0) {
+          const mappedSales: Sale[] = salesData.map((s: any) => ({
+            id: s.id,
+            date: new Date(s.created_at).toISOString().split('T')[0],
+            fileName: s.plan_name,
+            salesType: s.sales_type || 'Basic',
+            price: Number(s.amount) || 0,
+            user: s.user_email,
+          }));
+          setSales(mappedSales);
+        }
+
+        // Profiles / Users load karein
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (profilesData && profilesData.length > 0) {
+          const mappedUsers: AppUser[] = profilesData.map((p: any) => ({
+            id: p.id,
+            name: p.name || 'User',
+            email: p.email,
+            userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
+            signUpDate: new Date(p.created_at).toISOString().split('T')[0],
+            status: 'Active',
+          }));
+          setUsers(mappedUsers);
+        }
+      } catch (err) {
+        console.error('Error fetching data from Supabase:', err);
+      }
+    };
+
+    fetchSupabaseData();
+  }, []);
 
   // Active Logged In User & Admin Sync
   const loggedInAppUser = users.find(u => u.email.toLowerCase() === profile.email.toLowerCase());
@@ -112,17 +162,34 @@ export default function App() {
     });
   };
 
-  const handlePlanPurchased = (planName: any, price: number) => {
+  // ✅ Customer Purchase: Supabase me permanent insert
+  const handlePlanPurchased = async (planName: any, price: number) => {
     const isProPlan = planName !== 'BASIC';
+    const userEmail = profile.email || 'customer@example.com';
+    const salesType = isProPlan ? 'Premium' : 'Basic';
+    const fileName = `${planName} Subscription ($${price})`;
+
     const newSale: Sale = {
       id: `s_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
-      fileName: `${planName} Subscription ($${price})`,
-      salesType: isProPlan ? 'Premium' : 'Basic',
-      price: price,
-      user: profile.email || 'customer@example.com',
+      fileName,
+      salesType,
+      price,
+      user: userEmail,
     };
     setSales((prev) => [newSale, ...prev]);
+
+    // Supabase DB me save
+    try {
+      await supabase.from('sales_ledger').insert([{
+        user_email: userEmail,
+        plan_name: fileName,
+        amount: price,
+        sales_type: salesType
+      }]);
+    } catch (e) {
+      console.error('Supabase sales insert error:', e);
+    }
 
     if (isProPlan) {
       setProfile((prev) => ({
@@ -135,11 +202,33 @@ export default function App() {
         }
         return u;
       }));
+
+      // Supabase profiles update
+      try {
+        await supabase
+          .from('profiles')
+          .update({ plan: 'PRO' })
+          .eq('email', userEmail.toLowerCase());
+      } catch (e) {
+        console.error('Supabase profile update error:', e);
+      }
     }
   };
 
-  const handleAddLiveSale = (newSale: Sale) => {
+  // ✅ Admin Dashboard se Live Sale Record: Supabase me insert
+  const handleAddLiveSale = async (newSale: Sale) => {
     setSales((prev) => [newSale, ...prev]);
+
+    try {
+      await supabase.from('sales_ledger').insert([{
+        user_email: newSale.user,
+        plan_name: newSale.fileName,
+        amount: newSale.price,
+        sales_type: newSale.salesType
+      }]);
+    } catch (e) {
+      console.error('Supabase live sale insert error:', e);
+    }
   };
 
   const handleUpdateProfile = (updated: Partial<CustomerProfileData>) => {
@@ -149,10 +238,9 @@ export default function App() {
     }));
   };
 
-  // ✅ जब कस्टमर लॉगिन करेगा: हमेशा होम/क्लीनर पेज पर ही रहेगा, एडमिन ऑटो-ओपन नहीं होगा
+  // Login handler
   const handleLoginSuccess = (name: string, email: string) => {
     setIsLoggedIn(true);
-    setIsAdminLoggedIn(false); // एडमिन तब तक लॉक रहेगा जब तक पासवर्ड न डाला जाए
     
     const cleanEmail = email.trim().toLowerCase();
     const isOwner = cleanEmail === 'cleancsvglobal@gmail.com' || cleanEmail === 'shersinghchanna0@gmail.com';
@@ -185,14 +273,11 @@ export default function App() {
       ];
     });
     
-    // ✅ लॉगिन होते ही सीधा क्लीनर (home) पेज खुलेगा
     setCurrentView('home'); 
   };
 
-  // जब लॉगिन स्क्रीन के नीचे "Admin portal?" पर क्लिक करके लॉगिन करें
   const handleAdminDirectLogin = () => {
     setIsLoggedIn(true);
-    setIsAdminLoggedIn(false); // पहले पासवर्ड बॉक्स आएगा
     setProfile((prev) => ({
       ...prev,
       name: 'Sher Singh',
@@ -203,15 +288,10 @@ export default function App() {
     setCurrentView('admin');
   };
 
-  // जब नेवबार/प्रोफ़ाइल ड्रॉपडाउन से "Admin" चुना जाए
-  const handleNavigateToAdminView = () => {
-    // अगर पहले से पासवर्ड डालकर अनलॉक नहीं किया है, तो पासवर्ड स्क्रीन दिखेगी
-    setCurrentView('admin');
-  };
-
   const handleLogout = () => {
     setIsLoggedIn(false);
     setIsAdminLoggedIn(false);
+    sessionStorage.removeItem('cleancsv_admin_auth');
     setProfile(INITIAL_PROFILE); 
     setFreeFilesUsed(0);
     localStorage.removeItem('cleancsv_freeFilesUsed');
@@ -227,7 +307,7 @@ export default function App() {
         currentView={currentView}
         onNavigate={(view) => {
           if (view === 'admin') {
-            handleNavigateToAdminView();
+            setCurrentView('admin');
           } else {
             setCurrentView(view);
           }
@@ -238,7 +318,10 @@ export default function App() {
         isLoggedIn={isLoggedIn}
         onToggleLogin={handleLogout}
         isAdminLoggedIn={isAdminLoggedIn}
-        onLogoutAdmin={() => setIsAdminLoggedIn(false)}
+        onLogoutAdmin={() => {
+          setIsAdminLoggedIn(false);
+          sessionStorage.removeItem('cleancsv_admin_auth');
+        }}
         userName={profile.name}
         userAvatar={profile.avatar}
         t={t}
@@ -252,7 +335,7 @@ export default function App() {
             onIncrementUsage={handleIncrementUsage}
             onFileCleaned={handleFileCleaned}
             onNavigateToPricing={() => setCurrentView(isLoggedIn ? 'profile' : 'auth')}
-            onNavigateToAdmin={() => handleNavigateToAdminView()}
+            onNavigateToAdmin={() => setCurrentView('admin')}
             onOpenSupportModal={() => setIsSupportModalOpen(true)}
             onSelectLanguage={setCurrentLanguage}
             currentUser={currentUserData}
@@ -266,13 +349,7 @@ export default function App() {
             onUpdateProfile={handleUpdateProfile}
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
-            onNavigate={(view) => {
-              if (view === 'admin') {
-                handleNavigateToAdminView();
-              } else {
-                setCurrentView(view);
-              }
-            }}
+            onNavigate={(view) => setCurrentView(view)}
           />
         )}
 
@@ -280,9 +357,13 @@ export default function App() {
           <AdminDashboard
             t={t}
             isAdminLoggedIn={isAdminLoggedIn}
-            onLoginAdmin={() => setIsAdminLoggedIn(true)}
+            onLoginAdmin={() => {
+              setIsAdminLoggedIn(true);
+              sessionStorage.setItem('cleancsv_admin_auth', 'true');
+            }}
             onLogoutAdmin={() => {
               setIsAdminLoggedIn(false);
+              sessionStorage.removeItem('cleancsv_admin_auth');
               setCurrentView('home');
             }}
             onReturnToHome={() => setCurrentView('home')}
