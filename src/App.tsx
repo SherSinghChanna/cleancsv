@@ -94,9 +94,11 @@ export default function App() {
 
   const t = translations[currentLanguage];
 
-  const handleNavigateView = (view: NavView) => {
-    setCurrentView(view);
-    localStorage.setItem('cleancsv_current_view', view);
+  const handleNavigateView = (view: any) => {
+    // अगर कोई cleaner या home भेजे तो सुरक्षित तरीके से home सेट करें
+    const targetView = (view === 'cleaner' || view === 'home') ? 'home' : view;
+    setCurrentView(targetView);
+    localStorage.setItem('cleancsv_current_view', targetView);
   };
 
   useEffect(() => {
@@ -125,7 +127,6 @@ export default function App() {
           .order('created_at', { ascending: false });
 
         if (profilesData && profilesData.length > 0) {
-          // Rohit Kumar / Sher Singh ka sahi naam map karein
           const mappedUsers: AppUser[] = profilesData.map((p: any) => {
             let properName = p.name;
             if (!properName || properName === 'User') {
@@ -145,7 +146,6 @@ export default function App() {
           });
           setUsers(mappedUsers);
 
-          // Total Files count Supabase se sync karein
           const totalFiles = profilesData.reduce((acc: number, cur: any) => acc + (Number(cur.cleaned_count) || 0), 0);
           setGlobalCleanedCount(totalFiles > 0 ? totalFiles : 3);
         }
@@ -404,21 +404,8 @@ export default function App() {
       />
 
       <div className="flex-1">
-        {currentView === 'home' && (
-          <HomeCleaner
-            t={t}
-            freeFilesUsed={freeFilesUsed}
-            onIncrementUsage={handleIncrementUsage}
-            onFileCleaned={handleFileCleaned}
-            onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')}
-            onNavigateToAdmin={() => handleNavigateView('admin')}
-            onOpenSupportModal={() => setIsSupportModalOpen(true)}
-            onSelectLanguage={setCurrentLanguage}
-            currentUser={currentUserData}
-          />
-        )}
-
-        {currentView === 'profile' && isLoggedIn && (
+        {/* Profile View */}
+        {currentView === 'profile' && isLoggedIn ? (
           <CustomerProfile
             t={t}
             profile={currentUserData}
@@ -426,10 +413,9 @@ export default function App() {
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
             onNavigate={(view) => handleNavigateView(view)}
+            onNavigateToCleaner={() => handleNavigateView('home')}
           />
-        )}
-
-        {currentView === 'admin' && (
+        ) : currentView === 'admin' ? (
           <AdminDashboard
             t={t}
             isAdminLoggedIn={isAdminLoggedIn}
@@ -450,13 +436,24 @@ export default function App() {
             cleanedFilesHistory={cleanedFilesHistory}
             totalCleanedFiles={Math.max(globalCleanedCount, profile.totalCleanedFiles)}
           />
-        )}
-
-        {currentView === 'auth' && (
+        ) : currentView === 'auth' ? (
           <AuthSplitScreen
             t={t}
             onLoginSuccess={handleLoginSuccess}
             onAdminLoginSuccess={handleAdminDirectLogin}
+          />
+        ) : (
+          /* Default Fallback: HomeCleaner (ताकि स्क्रीन कभी भी सफेद न हो) */
+          <HomeCleaner
+            t={t}
+            freeFilesUsed={freeFilesUsed}
+            onIncrementUsage={handleIncrementUsage}
+            onFileCleaned={handleFileCleaned}
+            onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')}
+            onNavigateToAdmin={() => handleNavigateView('admin')}
+            onOpenSupportModal={() => setIsSupportModalOpen(true)}
+            onSelectLanguage={setCurrentLanguage}
+            currentUser={currentUserData}
           />
         )}
       </div>
