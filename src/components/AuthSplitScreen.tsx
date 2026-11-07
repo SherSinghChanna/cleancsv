@@ -269,7 +269,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
             <Sparkles className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">CleanCSV Global</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">CleanCSV</h1>
           <p className="text-xs text-slate-400 mt-1">Fast, Secure CSV Cleaner & Data Analytics</p>
         </div>
 
@@ -592,7 +592,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
         )}
 
         <div className="mt-6 text-center text-[10px] text-slate-500 border-t border-slate-700/50 pt-4">
-          256-bit SSL End-to-End Encryption · CleanCSV Global Security
+          256-bit SSL End-to-End Encryption · CleanCSV Security
         </div>
       </div>
 
@@ -603,7 +603,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
           <a href="#" className="hover:text-slate-400 transition-colors">Privacy Policy</a>
           <a href="mailto:support@cleancsv.io" className="hover:text-slate-400 transition-colors">Contact Support</a>
         </div>
-        <p className="text-[11px] text-slate-600">© 2026 CleanCSV Global. All rights reserved.</p>
+        <p className="text-[11px] text-slate-600">© 2026 CleanCSV. All rights reserved.</p>
       </footer>
     </div>
   );

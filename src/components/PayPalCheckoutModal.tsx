@@ -63,7 +63,7 @@ export const PayPalCheckoutModal: React.FC<PayPalModalProps> = ({
                   intent: "CAPTURE",
                   purchase_units: [
                     {
-                      description: `CleanCSV Global - ${planName}`,
+                      description: `CleanCSV - ${planName}`,
                       amount: {
                         currency_code: "USD",
                         value: price.toFixed(2),

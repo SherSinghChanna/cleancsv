@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     try {
       if (navigator.share) {
         await navigator.share({
-          title: 'CleanCSV Global',
+          title: 'CleanCSV',
           text: 'Check out this amazing CSV cleaner! It makes data cleaning super easy.',
           url: window.location.href,
         });
@@ -103,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <span className="text-base font-bold tracking-tight text-slate-900 group-hover:text-indigo-950 transition-colors whitespace-nowrap">
-                CleanCSV Global
+                CleanCSV
               </span>
             </button>
 

@@ -348,13 +348,13 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
       <footer className="border-t border-slate-200 bg-white py-8 px-6 text-xs text-slate-500 mt-16">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-6">
-            <span className="font-semibold text-slate-800">CleanCSV Global</span>
+            <span className="font-semibold text-slate-800">CleanCSV</span>
             <a href="#" className="hover:text-slate-800 transition">Terms of Service</a>
             <a href="#" className="hover:text-slate-800 transition">Privacy Statement</a>
             <a href="mailto:support@cleancsv.io" className="hover:text-slate-800 transition">support@cleancsv.io</a>
           </div>
           <div className="text-[11px] text-slate-400">
-            © 2026 CleanCSV Global. All rights reserved.
+            © 2026 CleanCSV. All rights reserved.
           </div>
         </div>
       </footer>

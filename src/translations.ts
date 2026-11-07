@@ -175,7 +175,7 @@ export interface TranslationStrings {
 
 export const translations: Record<Language, TranslationStrings> = {
   en: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'Products',
     solutions: 'Solutions',
     pricing: 'Pricing',
@@ -319,7 +319,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   hi: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'उत्पाद',
     solutions: 'समाधान',
     pricing: 'मूल्य निर्धारण',
@@ -463,7 +463,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   ar: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'المنتجات',
     solutions: 'الحلول',
     pricing: 'الأسعار',
@@ -607,7 +607,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   es: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'Productos',
     solutions: 'Soluciones',
     pricing: 'Precios',
@@ -751,7 +751,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   fr: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'Produits',
     solutions: 'Solutions',
     pricing: 'Tarifs',
@@ -895,7 +895,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   zh: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: '产品',
     solutions: '解决方案',
     pricing: '价格',
@@ -1039,7 +1039,7 @@ export const translations: Record<Language, TranslationStrings> = {
   },
 
   ru: {
-    brandTitle: 'CleanCSV Global',
+    brandTitle: 'CleanCSV',
     products: 'Продукты',
     solutions: 'Решения',
     pricing: 'Тарифы',

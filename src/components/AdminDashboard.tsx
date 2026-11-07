@@ -588,7 +588,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {t.allUsersList} ({filteredUsers.length})
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Managed accounts and client profiles in CleanCSV Global
+                Managed accounts and client profiles in CleanCSV
               </p>
             </div>
 
