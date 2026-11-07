@@ -21,6 +21,7 @@ interface CustomerProfileProps {
   onPlanPurchased?: (planName: any, price: number) => void;
   onLogout?: () => void;
   onNavigate?: (view: any) => void;
+  onNavigateToCleaner?: () => void;
   userEmail?: string;
   userName?: string;
 }
@@ -32,11 +33,12 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   onPlanPurchased,
   onLogout,
   onNavigate,
+  onNavigateToCleaner,
   userEmail,
   userName,
 }) => {
   const displayName = profile?.name || userName || 'Customer';
-  const displayEmail = profile?.email || userEmail || 'customer@cleancsv.io';
+  const displayEmail = profile?.email || userEmail || 'support@cleancsv.online';
 
   // 1. Pro Status Check (Admin, Supabase Data ya Email)
   const isPro = Boolean(
@@ -64,7 +66,19 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
     setIsModalOpen(true);
   };
 
-  // 2. ऑटोमैटिक पेमेंट सक्सेस हैंडलर (सीधे Supabase में PRO सेव करेगा)
+  // क्लीनर पर जाने का सुरक्षित हैंडलर (जो कभी फेल नहीं होगा)
+  const handleGoToCleaner = () => {
+    if (onNavigateToCleaner) {
+      onNavigateToCleaner();
+    } else if (onNavigate) {
+      onNavigate('home');
+      onNavigate('cleaner');
+    } else {
+      window.location.href = '/';
+    }
+  };
+
+  // 2. ऑटोमैटिक पेमेंट सक्सेस हैंडलर
   const handlePaymentSuccess = async (planName: string) => {
     try {
       const { error } = await supabase
@@ -143,16 +157,14 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
-            {onNavigate && (
-              <button
-                type="button"
-                onClick={() => onNavigate('cleaner')}
-                className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Open Cleaner</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleGoToCleaner}
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Open Cleaner</span>
+            </button>
             {onLogout && (
               <button
                 type="button"
@@ -229,7 +241,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
         </div>
 
-        {/* Pricing Cards: Pro होने पर छिप जाएँगे */}
+        {/* Pricing Cards */}
         {!isPro && (
           <div className="space-y-6 pt-4">
             <div className="text-center max-w-xl mx-auto">
@@ -349,9 +361,8 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-6">
             <span className="font-semibold text-slate-800">CleanCSV</span>
-            <a href="#" className="hover:text-slate-800 transition">Terms of Service</a>
-            <a href="#" className="hover:text-slate-800 transition">Privacy Statement</a>
-            <a href="mailto:support@cleancsv.io" className="hover:text-slate-800 transition">support@cleancsv.io</a>
+            <button type="button" onClick={handleGoToCleaner} className="hover:text-slate-800 transition cursor-pointer">Cleaner</button>
+            <a href="mailto:support@cleancsv.online" className="hover:text-slate-800 font-mono transition">support@cleancsv.online</a>
           </div>
           <div className="text-[11px] text-slate-400">
             © 2026 CleanCSV. All rights reserved.
