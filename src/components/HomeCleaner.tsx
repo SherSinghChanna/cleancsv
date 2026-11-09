@@ -150,7 +150,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
   const startCleaningProcess = () => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
-      alert("You have reached your free limit of 3 files. Please upgrade or log in to continue!");
+      alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
       onNavigateToPricing();
       return;
     }
@@ -164,8 +164,8 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const executeClean = (rawText: string, fileName: string) => {
-    // लूपहोल प्रोटेक्शन: 3 फाइलें पूरी होने पर आगे प्रोसेस नहीं होने देगा
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
+      alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
       onNavigateToPricing();
       return;
     }
