@@ -194,7 +194,7 @@ export const translations: Record<Language, TranslationStrings> = {
     cleanAndDownload: '🚀 Clean & Download',
     downloadProcessedFile: 'Download Processed File',
     processing: 'Processing...',
-    filesDeletedNotice: '🔒 Your files are deleted immediately after download.',
+    filesDeletedNotice: '🔒 100% In-Browser: Never uploaded to any server.',
     freeFilesUsed: '🎁 Free files used',
     cleanedSuccessTitle: 'File Cleaned Successfully!',
     downloadFile: '⬇️ Download File',
