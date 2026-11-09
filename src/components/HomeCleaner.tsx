@@ -149,6 +149,12 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const startCleaningProcess = () => {
+    if (!isUnlimitedUser && freeFilesUsed >= 3) {
+      alert("You have reached your free limit of 3 files. Please upgrade or log in to continue!");
+      onNavigateToPricing();
+      return;
+    }
+
     if (!rawCSVContent) {
       handleLoadSample();
       executeClean(SAMPLE_MESSY_CSV, 'global_messy_sales_data.csv');
@@ -158,6 +164,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const executeClean = (rawText: string, fileName: string) => {
+    // लूपहोल प्रोटेक्शन: 3 फाइलें पूरी होने पर आगे प्रोसेस नहीं होने देगा
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       onNavigateToPricing();
       return;
@@ -349,11 +356,21 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               <div className="mt-6 flex flex-col items-center">
                 <button 
                   type="button" 
-                  disabled={isProcessing || !rawCSVContent} 
+                  disabled={isProcessing || (!rawCSVContent && freeFilesUsed >= 3 && !isUnlimitedUser)} 
                   onClick={startCleaningProcess} 
-                  className="w-full sm:w-auto min-w-[260px] px-8 py-3 text-sm sm:text-base font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className={`w-full sm:w-auto min-w-[260px] px-8 py-3 text-sm sm:text-base font-bold text-white rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    !isUnlimitedUser && freeFilesUsed >= 3 
+                      ? 'bg-amber-600 hover:bg-amber-700' 
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed'
+                  }`}
                 >
-                  <span>{rawCSVContent ? 'Clean & Process File' : 'Upload File to Clean'}</span>
+                  <span>
+                    {!isUnlimitedUser && freeFilesUsed >= 3 
+                      ? 'Free Limit Reached (Upgrade / Log In)' 
+                      : rawCSVContent 
+                        ? 'Clean & Process File' 
+                        : 'Upload File to Clean'}
+                  </span>
                 </button>
                 
                 {isProcessing && (
