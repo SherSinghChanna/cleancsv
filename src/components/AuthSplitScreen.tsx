@@ -407,7 +407,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
           </form>
         ) : activeTab === 'admin' ? (
           /* 3. ADMIN LOGIN */
-          <form onSubmit={handleAdminPasswordLogin} className="space-y-3.5">
+          <form autoComplete="off" onSubmit={handleAdminPasswordLogin} className="space-y-3.5">
             <div className="text-center mb-2">
               <ShieldCheck className="w-6 h-6 text-indigo-400 mx-auto mb-1" />
               <h2 className="text-sm font-semibold text-white">Master Admin Console</h2>
@@ -415,7 +415,9 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">Admin ID</label>
               <input 
-                type="text" 
+                type="text"
+                name="admin_id_prevent_autofill"
+                autoComplete="off"
                 required 
                 value={adminId} 
                 onChange={(e) => setAdminId(e.target.value)} 
@@ -427,6 +429,8 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
               <label className="block text-xs font-medium text-slate-300 mb-1">Admin Password</label>
               <input 
                 type="password" 
+                name="admin_pass_prevent_autofill"
+                autoComplete="new-password"
                 required 
                 value={adminPassword} 
                 onChange={(e) => setAdminPassword(e.target.value)} 
