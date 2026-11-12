@@ -121,25 +121,24 @@ export default function App() {
   const cleanEmail = (profile.email || '').trim().toLowerCase();
   const isActualAdmin = cleanEmail === ADMIN_EMAIL;
 
-  // अगर Admin ने किसी ईमेल को अपग्रेड किया है, तो उसका नया प्लान लागू करें
   const adminOverridePlan = getSavedPlanOverride(cleanEmail);
   const effectivePlan = adminOverridePlan || (isActualAdmin ? 'PRO' : (profile.plan || 'BASIC'));
 
   const isUserPro = Boolean(
     isActualAdmin ||
     effectivePlan === 'PRO' ||
-    (effectivePlan as string) === 'YEARLY_PRO' ||
-    (effectivePlan as string) === 'BUSINESS' ||
-    profile.subscription_plan === 'PRO'
+    String(effectivePlan) === 'YEARLY_PRO' ||
+    String(effectivePlan) === 'BUSINESS' ||
+    (profile as any).subscription_plan === 'PRO'
   );
 
-  const currentUserData: CustomerProfileData = {
+  const currentUserData: any = {
     ...profile,
     role: isActualAdmin ? 'Admin' : 'Customer',
     userType: isActualAdmin ? 'Admin' : (isUserPro ? 'Premium' : 'Basic'),
     is_pro: isUserPro,
     subscription_plan: isUserPro ? 'PRO' : 'BASIC',
-    plan: effectivePlan as any,
+    plan: effectivePlan,
   };
 
   const handleNavigateView = (view: any) => {
@@ -202,7 +201,6 @@ export default function App() {
     fetchSupabaseData();
   }, []);
 
-  // Admin द्वारा किसी भी ईमेल या खुद को अपग्रेड करने का हैंडलर
   const handleAdminUpgradeEmail = (targetEmail: string, targetPlan: 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS') => {
     const cleanTarget = targetEmail.trim().toLowerCase();
     try {
@@ -214,7 +212,6 @@ export default function App() {
       // ignore
     }
 
-    // अगर अभी वही यूज़र लॉगिन है, तो तुरंत उसकी प्रोफ़ाइल भी अपडेट कर दें
     if (cleanTarget === cleanEmail) {
       setProfile((prev) => {
         const updated = { ...prev, plan: targetPlan as any };
@@ -303,7 +300,6 @@ export default function App() {
     const cleanLoginEmail = email.trim().toLowerCase();
     const isOwner = cleanLoginEmail === ADMIN_EMAIL;
 
-    // चेक करें कि क्या Admin ने इस ईमेल के लिए कोई प्लान पहले से अपग्रेड किया है
     let assignedPlan: any = getSavedPlanOverride(cleanLoginEmail) || (isOwner ? 'PRO' : 'BASIC');
 
     try {
@@ -351,7 +347,7 @@ export default function App() {
       name: 'Sher Singh',
       email: ADMIN_EMAIL,
       role: 'Admin',
-      plan: getSavedPlanOverride(ADMIN_EMAIL) || 'PRO',
+      plan: (getSavedPlanOverride(ADMIN_EMAIL) || 'PRO') as any,
     };
     setProfile(adminProf);
     localStorage.setItem('cleancsv_user_profile', JSON.stringify(adminProf));

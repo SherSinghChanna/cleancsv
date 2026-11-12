@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { CustomerProfileData, TranslationStrings } from '../types';
+import { CustomerProfileData } from '../types';
+import { TranslationStrings } from '../translations';
 import { Crown, LogOut, CheckCircle2, ArrowLeft, ShieldCheck, Zap } from 'lucide-react';
 import { PayPalCheckoutModal } from './PayPalCheckoutModal';
-import { PLANS_DATA } from '../data/plansData';
+import { PLANS_DATA, PricingPlan } from '../plansData';
 
 const ADMIN_EMAIL = 'shersinghchanna0@gmail.com';
 
 interface CustomerProfileProps {
   t: TranslationStrings;
-  profile: CustomerProfileData;
+  profile: CustomerProfileData & Record<string, any>;
   userEmail?: string;
   userName?: string;
   onUpdateProfile: (updated: Partial<CustomerProfileData>) => void;
@@ -36,11 +37,10 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   const isSoleAdmin = activeEmail.toLowerCase() === ADMIN_EMAIL;
   const activeName = userName || profile.name || activeEmail.split('@')[0] || 'Valued User';
   
-  const currentPlan = (profile.plan as string) || profile.subscription_plan || 'BASIC';
+  const currentPlan = String(profile.plan || profile.subscription_plan || 'BASIC');
   const isProUser = currentPlan === 'PRO' || currentPlan === 'BUSINESS' || currentPlan === 'YEARLY_PRO' || isSoleAdmin;
 
   const handleOpenCheckout = (planName: string, price: number) => {
-    // अगर Admin खुद है, तो बिना पेमेंट सीधे 1-क्लिक में अपग्रेड हो जाएगा
     if (isSoleAdmin) {
       onUpdateProfile({ plan: planName as any });
       setAdminNotice(`Admin Instant Switch: Your active plan is now ${planName}!`);
@@ -147,7 +147,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {PLANS_DATA.map((p) => (
+            {PLANS_DATA.map((p: PricingPlan) => (
               <button
                 key={p.id}
                 type="button"
@@ -167,7 +167,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
       {/* 4 Professional Pricing Plans */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-        {PLANS_DATA.map((plan) => {
+        {PLANS_DATA.map((plan: PricingPlan) => {
           const isCurrentPlan = currentPlan === plan.id;
 
           return (
@@ -223,7 +223,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                 </div>
 
                 <ul className={`space-y-2.5 text-xs mb-6 ${plan.b2b ? 'text-slate-200' : 'text-slate-700'}`}>
-                  {plan.features.map((feature, idx) => (
+                  {plan.features.map((feature: string, idx: number) => (
                     <li key={idx} className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>{feature}</span>
