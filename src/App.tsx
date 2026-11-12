@@ -138,10 +138,11 @@ export default function App() {
   }, []);
 
   // 🟢 असली एडमिन चेक (सिर्फ तभी जब ईमेल सच में एडमिन का हो)
+  const cleanEmail = (profile.email || '').trim().toLowerCase();
   const isActualAdmin = Boolean(
     isAdminLoggedIn || 
-    profile.email.toLowerCase() === 'shersinghchanna0@gmail.com' ||
-    profile.email.toLowerCase() === 'support@cleancsv.online'
+    cleanEmail === 'shersinghchanna0@gmail.com' ||
+    cleanEmail === 'support@cleancsv.online'
   );
 
   const isUserPro = Boolean(
@@ -238,8 +239,8 @@ export default function App() {
     setIsLoggedIn(true);
     localStorage.setItem('cleancsv_user_session', 'true');
     
-    const cleanEmail = email.trim().toLowerCase();
-    const isOwner = cleanEmail === 'support@cleancsv.online' || cleanEmail === 'shersinghchanna0@gmail.com';
+    const cleanLoginEmail = email.trim().toLowerCase();
+    const isOwner = cleanLoginEmail === 'support@cleancsv.online' || cleanLoginEmail === 'shersinghchanna0@gmail.com';
 
     const newProfile: CustomerProfileData = {
       ...profile,
@@ -309,7 +310,7 @@ export default function App() {
           handleNavigateView('home');
         }}
         userName={profile.name}
-        userEmail={profile.email}
+        userEmail={profile.email} // 🟢 यह सुनिश्चित करेगा कि Navbar में सही लॉगिन ईमेल ही दिखे
         userAvatar={profile.avatar}
         isPro={isUserPro}
         t={t}

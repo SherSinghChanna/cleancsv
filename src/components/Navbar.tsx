@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminLoggedIn,
   onLogoutAdmin,
   userName = 'User',
-  userEmail = 'support@cleancsv.online',
+  userEmail = '',
   userAvatar,
   isPro = false,
   t,
@@ -71,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  // 🟢 असली एडमिन चेक (सिर्फ तभी जब सच में एडमिन ईमेल हो)
+  // 🟢 असली एडमिन चेक
   const cleanEmail = (userEmail || '').trim().toLowerCase();
   const isAdmin = Boolean(
     isAdminLoggedIn || 
@@ -212,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             {isPro && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
                           </div>
                           <div className="text-[11px] text-slate-500 font-mono truncate">
-                            {userEmail}
+                            {userEmail || 'No email provided'}
                           </div>
                           <div className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold rounded-full uppercase tracking-wider">
                             {isPro ? 'PRO · Active' : 'BASIC · Active'}
