@@ -22,8 +22,13 @@ Rules:
 3. Use a comma (,) as the delimiter and wrap values containing commas in double quotes.
 4. Create clear, logical column headers in the first row if headers are missing.`;
 
-    // यदि पहला मॉडल व्यस्त (high demand) हो, तो अपने आप अगले उपलब्ध मॉडल से कोशिश करेगा
-    const models = ['gemini-3.8-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-pro'];
+    // सभी सक्रिय और नए Gemini मॉडल्स की लिस्ट
+    const models = [
+      'gemini-3.8-flash',
+      'gemini-3.1-pro-preview',
+      'gemini-3.8-flash',
+      'gemini-3.1-pro-preview'
+    ];
     let lastError = 'AI service is busy, please try again.';
 
     for (const model of models) {
@@ -60,6 +65,8 @@ Rules:
         }
 
         lastError = data.error?.message || lastError;
+        // यदि सर्वर व्यस्त हो तो 1 सेकंड रुककर अगले मॉडल से कोशिश करें
+        await new Promise((r) => setTimeout(r, 1000));
       } catch (e) {
         lastError = e.message || lastError;
       }
