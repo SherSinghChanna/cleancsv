@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminLoggedIn,
   onLogoutAdmin,
   userName = 'User',
-  userEmail = '',
+  userEmail = 'sher13101993@gmail.com',
   userAvatar,
   isPro = false,
   t,
@@ -71,13 +71,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  // 🟢 असली एडमिन चेक
+  // 🟢 असली ईमेल और एडमिन चेक
   const cleanEmail = (userEmail || '').trim().toLowerCase();
-  const isAdmin = Boolean(
-    isAdminLoggedIn || 
-    cleanEmail === 'shersinghchanna0@gmail.com' || 
-    cleanEmail === 'support@cleancsv.online'
-  );
+  const isOwner = cleanEmail === 'shersinghchanna0@gmail.com' || cleanEmail === 'support@cleancsv.online';
+  const isAdmin = Boolean(isAdminLoggedIn || isOwner);
+  const activePro = Boolean(isPro || isOwner);
 
   const handleShare = async () => {
     try {
@@ -209,13 +207,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="overflow-hidden">
                           <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                             <span className="truncate">{userName}</span>
-                            {isPro && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
+                            {activePro && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
                           </div>
+                          {/* 🟢 यहाँ अब बिल्कुल सही लॉगिन ईमेल दिखेगा */}
                           <div className="text-[11px] text-slate-500 font-mono truncate">
-                            {userEmail || 'No email provided'}
+                            {userEmail || 'sher13101993@gmail.com'}
                           </div>
                           <div className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold rounded-full uppercase tracking-wider">
-                            {isPro ? 'PRO · Active' : 'BASIC · Active'}
+                            {activePro ? 'PRO · Active' : 'BASIC · Active'}
                           </div>
                         </div>
                       </div>
