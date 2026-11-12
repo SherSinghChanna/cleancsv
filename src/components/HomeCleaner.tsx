@@ -105,7 +105,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     reader.readAsText(file);
   };
 
-  // Preview Modal में किसी भी सेल को सीधे एडिट करने का फ़ंक्शन
   const handleCellEdit = (rowIndex: number, colIndex: number, newValue: string) => {
     if (!cleanedFile) return;
     const updatedRows = cleanedFile.rows.map((r, rIdx) =>
@@ -118,7 +117,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     });
   };
 
-  // Preview Modal में नई खाली Row जोड़ने का फ़ंक्शन
   const handleAddRow = () => {
     if (!cleanedFile) return;
     const emptyRow = new Array(cleanedFile.headers.length).fill('');
@@ -130,7 +128,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     });
   };
 
-  // Preview Modal में किसी Row को डिलीट करने का फ़ंक्शन
   const handleDeleteRow = (rowIndex: number) => {
     if (!cleanedFile) return;
     const updatedRows = cleanedFile.rows.filter((_, idx) => idx !== rowIndex);
@@ -300,10 +297,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                     <UploadCloud className="w-8 h-8 sm:w-9 sm:h-9 stroke-[2]" />
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight mb-1">
-                    {t.dropzoneTitle}
+                    Drag & Drop your CSV file here
                   </h3>
                   <p className="text-xs text-slate-500 mb-5 max-w-xs sm:max-w-md">
-                    {t.dropzoneSubtitle}
+                    Supports .csv, .tsv, and .txt files — processed 100% locally in your browser
                   </p>
 
                   {selectedFileName && (
@@ -393,7 +390,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                   <div className="mt-4 w-full max-w-md space-y-1.5">
                     <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                      <span>{t.cleaning} {progressPercent}%</span>
+                      <span>Cleaning & Formatting... {progressPercent}%</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-200/80 rounded-full overflow-hidden shadow-inner">
                       <div
