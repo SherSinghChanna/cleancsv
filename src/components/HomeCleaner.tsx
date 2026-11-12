@@ -3,6 +3,7 @@ import { TranslationStrings } from '../translations';
 import { CleanedFile, Language } from '../types';
 import { parseCSV, cleanCSVData, stringifyCSV, triggerDownload, SAMPLE_MESSY_CSV } from '../utils/csvEngine';
 import confetti from 'canvas-confetti';
+import { createWorker } from 'tesseract.js';
 import { 
   UploadCloud, 
   Download, 
@@ -130,46 +131,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     reader.readAsText(file);
   };
 
-  // फ़ोटो को अपलोड करने से पहले हल्का (Compress) करने वाला हेल्पर ताकि मोबाइल से Failed to fetch न आए
-  const compressImageToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1600;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Canvas error'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          resolve({
-            base64: dataUrl.split(',')[1],
-            mimeType: 'image/jpeg',
-          });
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Handwritten / Photo to CSV Scanner Logic
+  // 100% खुद का In-Browser OCR Scanner (बिना किसी API Limit या Server Upload के)
   const handleImageSelected = async (imageFile: File) => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
@@ -178,51 +140,58 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }
 
     setIsProcessing(true);
-    setProcessingLabel('Optimizing & scanning photo with AI...');
-    setProgressPercent(25);
+    setProcessingLabel('Reading text from photo in-browser...');
+    setProgressPercent(15);
     setIsDeletedMessage(null);
     setCleanedFile(null);
 
     try {
-      const { base64, mimeType } = await compressImageToBase64(imageFile);
-
-      setProgressPercent(55);
-
-      const response = await fetch('/api/scan-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          mimeType,
-        }),
+      const worker = await createWorker('eng', 1, {
+        logger: (m) => {
+          if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+            setProgressPercent(Math.min(90, Math.round(20 + m.progress * 70)));
+          }
+        },
       });
 
-      setProgressPercent(85);
+      const { data: { text } } = await worker.recognize(imageFile);
+      await worker.terminate();
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Image scan failed');
+      if (!text || !text.trim()) {
+        throw new Error('फ़ोटो से कोई अक्षर नहीं पढ़े जा सके। कृपया साफ़ रोशनी में खींची फ़ोटो चुनें।');
       }
 
-      const data = await response.json();
-      if (!data.csv || !data.csv.trim()) {
-        throw new Error('फ़ोटो से कोई टेबल या डेटा नहीं मिल पाया। कृपया साफ़ फ़ोटो लें।');
-      }
+      const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 
+      const csvLines = lines.map((line) => {
+        const cols = line
+          .split(/\s{2,}|\t|\|/)
+          .map((col) => {
+            const cleanCol = col.trim();
+            return cleanCol.includes(',') ? `"${cleanCol.replace(/"/g, '""')}"` : cleanCol;
+          })
+          .filter((c) => c !== '');
+        return cols.join(',');
+      });
+
+      const generatedCSV = csvLines.join('\n');
       const baseName = imageFile.name.replace(/\.[^/.]+$/, '') || 'scanned_photo';
       const csvFileName = `${baseName}_scanned.csv`;
 
       setSelectedFileName(csvFileName);
-      setRawCSVContent(data.csv);
+      setRawCSVContent(generatedCSV);
       setIsProcessing(false);
       setProgressPercent(0);
 
-      executeClean(data.csv, csvFileName);
+      executeClean(generatedCSV, csvFileName);
     } catch (err: any) {
-      console.error('Photo Scan Error:', err);
+      console.error('Local OCR Error:', err);
       setIsProcessing(false);
       setProgressPercent(0);
-      alert(err?.message || 'फ़ोटो स्कैन करने में समस्या आई। कृपया साफ़ फ़ोटो अपलोड करें।');
+      alert(err?.message || 'फ़ोटो पढ़ने में समस्या आई। कृपया साफ़ फ़ोटो चुनें।');
     } finally {
       if (imageInputRef.current) imageInputRef.current.value = '';
     }
@@ -365,7 +334,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       
       {/* Background Graphic Lines */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-        <svg className="w-full h-full" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <path d="M -100 280 C 150 180, 250 480, 600 380 S 1100 500, 1600 320" fill="none" stroke="#10b981" strokeWidth="1.4" opacity="0.45" />
           <path d="M -80 420 C 220 520, 480 200, 850 320 S 1350 180, 1700 450" fill="none" stroke="#0284c7" strokeWidth="1.2" opacity="0.4" />
         </svg>
