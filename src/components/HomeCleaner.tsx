@@ -3,8 +3,6 @@ import { TranslationStrings } from '../translations';
 import { CleanedFile, Language } from '../types';
 import { parseCSV, cleanCSVData, stringifyCSV, triggerDownload, SAMPLE_MESSY_CSV } from '../utils/csvEngine';
 import confetti from 'canvas-confetti';
-import { createWorker } from 'tesseract.js';
-import { AutoProcessor, Florence2ForConditionalGeneration, RawImage, env } from '@huggingface/transformers';
 import { 
   UploadCloud, 
   Download, 
@@ -19,18 +17,9 @@ import {
   Sliders, 
   X,
   Search,
-  Zap,
   Check,
-  Camera,
   Plus
 } from 'lucide-react';
-
-// ब्राउज़र में लोकल कैश और वेब मॉडल्स चालू करें
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-
-let cachedProcessor: any = null;
-let cachedModel: any = null;
 
 interface HomeCleanerProps {
   t: TranslationStrings;
@@ -46,28 +35,16 @@ interface HomeCleanerProps {
 
 export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   t,
-  freeFilesUsed,
   onIncrementUsage,
   onFileCleaned,
   onNavigateToPricing,
   onOpenSupportModal,
-  currentUser,
 }) => {
-  const isUnlimitedUser = Boolean(
-    currentUser?.is_pro === true ||
-    currentUser?.subscription_plan === 'PRO' ||
-    currentUser?.plan === 'PRO' ||
-    currentUser?.userType === 'Premium' ||
-    currentUser?.userType === 'Admin' ||
-    currentUser?.email === 'shersinghchanna0@gmail.com'
-  );
-
   const [footerModal, setFooterModal] = useState<'venue' | 'privacy' | 'terms' | 'sla' | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [rawCSVContent, setRawCSVContent] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingLabel, setProcessingLabel] = useState<string>('Processing...');
   const [progressPercent, setProgressPercent] = useState(0);
   const [cleanedFile, setCleanedFile] = useState<CleanedFile | null>(null);
   const [isDeletedMessage, setIsDeletedMessage] = useState<string | null>(null);
@@ -85,7 +62,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -102,24 +78,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.type.startsWith('image/')) {
-        handleImageSelected(droppedFile);
-      } else {
-        handleFileSelected(droppedFile);
-      }
+      handleFileSelected(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       handleFileSelected(e.target.files[0]);
-    }
-  };
-
-  const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageSelected(e.target.files[0]);
     }
   };
 
@@ -138,211 +103,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       setRawCSVContent(text);
     };
     reader.readAsText(file);
-  };
-
-  // इमेज को साफ़ और सही साइज़ में तैयार करने का फ़ंक्शन
-  const prepareCleanImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 1400;
-          const scale = Math.min(1.5, MAX_DIM / Math.max(img.width, img.height));
-          const width = Math.round(img.width * scale);
-          const height = Math.round(img.height * scale);
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Canvas initialization failed'));
-            return;
-          }
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.92));
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // खुद का इन-ब्राउज़र Vision AI इंजन (Handwriting + Printed Text)
-  const runInBrowserVisionAI = async (imageUrl: string): Promise<string> => {
-    const modelId = 'onnx-community/Florence-2-base-ft';
-    if (!cachedProcessor || !cachedModel) {
-      setProcessingLabel('Loading In-Browser AI Vision Engine (first time only)...');
-      cachedProcessor = await AutoProcessor.from_pretrained(modelId);
-      cachedModel = await Florence2ForConditionalGeneration.from_pretrained(modelId, {
-        dtype: 'q4',
-      });
-    }
-
-    setProcessingLabel('AI reading handwriting & table structure locally...');
-    const image = await RawImage.fromURL(imageUrl);
-    const task = '<OCR>';
-    const prompts = cachedProcessor.construct_prompts(task);
-    const inputs = await cachedProcessor(image, prompts);
-
-    const generatedIds = await cachedModel.generate({
-      ...inputs,
-      max_new_tokens: 1024,
-    });
-
-    const generatedText = cachedProcessor.batch_decode(generatedIds, {
-      skip_special_tokens: false,
-    })[0];
-
-    const parsed = cachedProcessor.post_process_generation(generatedText, task, image.size);
-    return parsed['<OCR>'] || '';
-  };
-
-  // निकाले गए टेक्स्ट को स्मार्ट तरीके से साफ़ CSV में बदलने का पार्सर
-  const convertExtractedTextToCleanCSV = (rawText: string): string => {
-    const cleanedText = rawText
-      .replace(/\s+@\s*/g, '@')
-      .replace(/@\s+/g, '@')
-      .replace(/\s+\.com/gi, '.com')
-      .replace(/Gmail\s*\.?\s*com/gi, 'Gmail.com');
-
-    // पैटर्न 1: अगर टेक्स्ट में Name + Email जैसी एंट्रीज़ हैं (जैसे रजिस्टर लिस्ट)
-    const entryRegex = /(?:Name\s*[-–:=]\s*)?([A-Za-z][A-Za-z\s]{1,35}?)\s*[,;]?\s*(?:Email\s*(?:ID)?\s*[-–:=]?\s*)?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/gi;
-    const contactMatches = [...cleanedText.matchAll(entryRegex)];
-
-    if (contactMatches.length >= 1) {
-      const rows = ['Name,Email ID'];
-      for (const m of contactMatches) {
-        const cleanName = m[1]
-          .replace(/^\d+[\s,.)-]*/, '')
-          .replace(/Name\s*[-–:=]?/gi, '')
-          .trim()
-          .replace(/"/g, '""');
-        const cleanEmail = m[2].trim().replace(/"/g, '""');
-        if (cleanName && cleanEmail) {
-          rows.push(`"${cleanName}","${cleanEmail}"`);
-        }
-      }
-      if (rows.length > 1) return rows.join('\n');
-    }
-
-    // पैटर्न 2: सामान्य लाइन-दर-लाइन या टेबल डेटा
-    const rawLines = cleanedText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 1);
-
-    let kvMatches = 0;
-    for (const l of rawLines) {
-      if (/^([A-Za-z0-9\s./()#]{2,32})\s*[:=\-–—]+\s*(.+)$/.test(l)) {
-        kvMatches++;
-      }
-    }
-
-    if (kvMatches >= 2 && rawLines.length <= 30) {
-      const rows = ['Field,Value'];
-      for (const line of rawLines) {
-        const match = line.match(/^([A-Za-z0-9\s./()#]{2,32}?)\s*[:=\-–—]+\s*(.+)$/);
-        if (match) {
-          const k = match[1].trim().replace(/"/g, '""');
-          const v = match[2].trim().replace(/"/g, '""');
-          rows.push(`"${k}","${v}"`);
-        } else {
-          const safe = line.replace(/"/g, '""');
-          rows.push(`"Item","${safe}"`);
-        }
-      }
-      return rows.join('\n');
-    }
-
-    const parsedRows = rawLines.map((line) => {
-      const cols = line
-        .split(/\s{2,}|\t|\||,/)
-        .map((col) => col.trim())
-        .filter((c) => c !== '');
-      return cols.length > 1 ? cols : [line];
-    });
-
-    const maxCols = Math.max(...parsedRows.map((r) => r.length), 1);
-    return parsedRows
-      .map((cols) => {
-        const padded = [...cols];
-        while (padded.length < maxCols) padded.push('');
-        return padded
-          .map((c) => (c.includes(',') ? `"${c.replace(/"/g, '""')}"` : c))
-          .join(',');
-      })
-      .join('\n');
-  };
-
-  // 100% In-Browser AI + Fallback OCR Engine (Zero Server Upload)
-  const handleImageSelected = async (imageFile: File) => {
-    if (!isUnlimitedUser && freeFilesUsed >= 3) {
-      alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
-      onNavigateToPricing();
-      return;
-    }
-
-    setIsProcessing(true);
-    setProcessingLabel('Preparing image locally in browser...');
-    setProgressPercent(15);
-    setIsDeletedMessage(null);
-    setCleanedFile(null);
-
-    try {
-      const processedImageUrl = await prepareCleanImage(imageFile);
-      setProgressPercent(35);
-
-      let extractedText = '';
-      try {
-        // पहले खुद का इन-ब्राउज़र Vision AI चलाएँ (Handwriting & Printed दोनों के लिए)
-        extractedText = await runInBrowserVisionAI(processedImageUrl);
-        setProgressPercent(85);
-      } catch (aiErr) {
-        console.warn('Vision AI fallback to Tesseract:', aiErr);
-        setProcessingLabel('Running backup local OCR...');
-        const worker = await createWorker('eng', 1, {
-          logger: (m) => {
-            if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-              setProgressPercent(Math.min(90, Math.round(40 + m.progress * 50)));
-            }
-          },
-        });
-        const { data: { text } } = await worker.recognize(processedImageUrl);
-        await worker.terminate();
-        extractedText = text;
-      }
-
-      if (!extractedText || !extractedText.trim()) {
-        throw new Error('No readable text detected. Please upload a clearer photo.');
-      }
-
-      const generatedCSV = convertExtractedTextToCleanCSV(extractedText);
-      const baseName = imageFile.name.replace(/\.[^/.]+$/, '') || 'scanned_document';
-      const csvFileName = `${baseName}_scanned.csv`;
-
-      setSelectedFileName(csvFileName);
-      setRawCSVContent(generatedCSV);
-      setIsProcessing(false);
-      setProgressPercent(0);
-
-      executeClean(generatedCSV, csvFileName, true);
-    } catch (err: any) {
-      console.error('In-Browser AI OCR Error:', err);
-      setIsProcessing(false);
-      setProgressPercent(0);
-      alert(err?.message || 'Unable to read image. Please upload a clearer photo.');
-    } finally {
-      if (imageInputRef.current) imageInputRef.current.value = '';
-    }
   };
 
   // Preview Modal में किसी भी सेल को सीधे एडिट करने का फ़ंक्शन
@@ -392,7 +152,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     if (!urlInput.trim()) return;
     try {
       setIsProcessing(true);
-      setProcessingLabel('Fetching remote CSV...');
       setProgressPercent(30);
       const res = await fetch(urlInput.trim());
       if (!res.ok) throw new Error('Fetch failed');
@@ -411,12 +170,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const startCleaningProcess = () => {
-    if (!isUnlimitedUser && freeFilesUsed >= 3) {
-      alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
-      onNavigateToPricing();
-      return;
-    }
-
     if (!rawCSVContent) {
       handleLoadSample();
       executeClean(SAMPLE_MESSY_CSV, 'global_messy_sales_data.csv');
@@ -425,15 +178,8 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     executeClean(rawCSVContent, selectedFileName || 'cleaned_data.csv');
   };
 
-  const executeClean = (rawText: string, fileName: string, openPreviewAfter = false) => {
-    if (!isUnlimitedUser && freeFilesUsed >= 3) {
-      alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
-      onNavigateToPricing();
-      return;
-    }
-
+  const executeClean = (rawText: string, fileName: string) => {
     setIsProcessing(true);
-    setProcessingLabel('Cleaning & Formatting...');
     setProgressPercent(15);
     setIsDeletedMessage(null);
 
@@ -468,14 +214,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
       setCleanedFile(resultFile);
       setIsProcessing(false);
-
-      if (openPreviewAfter) {
-        setShowPreviewModal(true);
-      }
-
-      if (!isUnlimitedUser) {
-        onIncrementUsage();
-      }
+      onIncrementUsage();
 
       if (onFileCleaned) {
         onFileCleaned(resultFile);
@@ -491,7 +230,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       } catch {
         // silent
       }
-    }, 600);
+    }, 650);
   };
 
   const handleDownload = () => {
@@ -505,7 +244,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     setRawCSVContent(null);
     setSelectedFileName(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (imageInputRef.current) imageInputRef.current.value = '';
     setIsDeletedMessage(t.deleteConfirmed);
   };
 
@@ -538,7 +276,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             Clean & Format CSV Files Instantly
           </h1>
           <p className="text-xs sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Remove duplicates, trim spaces, fix date formats, or extract printed tables, receipts & handwritten lists into clean CSV 100% locally in your browser.
+            Remove duplicates, trim accidental spaces, fix date formats, and validate delimiters 100% locally in your browser — completely free & unlimited.
           </p>
         </div>
 
@@ -556,17 +294,16 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 }`}
               >
                 <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt" onChange={handleFileInputChange} className="hidden" id="csv-file-input" />
-                <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageInputChange} className="hidden" id="photo-scan-input" />
 
                 <div className="flex flex-col items-center justify-center py-2 sm:py-4">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-xs">
                     <UploadCloud className="w-8 h-8 sm:w-9 sm:h-9 stroke-[2]" />
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight mb-1">
-                    Upload CSV or Scan Photo / Handwritten List
+                    {t.dropzoneTitle}
                   </h3>
                   <p className="text-xs text-slate-500 mb-5 max-w-xs sm:max-w-md">
-                    Drop your CSV file here, browse from device, or scan a photo of a receipt, printed table, or handwritten notebook list
+                    {t.dropzoneSubtitle}
                   </p>
 
                   {selectedFileName && (
@@ -579,31 +316,23 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                     </div>
                   )}
 
-                  {/* Action Buttons - Responsive Stack on Mobile */}
+                  {/* Action Buttons */}
                   <div className="w-full sm:w-auto flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
                     <label
                       htmlFor="csv-file-input"
-                      className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 cursor-pointer shadow-xs transition-all text-center flex items-center justify-center gap-1.5"
+                      className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 cursor-pointer shadow-xs transition-all text-center flex items-center justify-center gap-1.5"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                       <span>{t.chooseFile}</span>
                     </label>
 
-                    <label
-                      htmlFor="photo-scan-input"
-                      className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg cursor-pointer shadow-xs transition-all text-center flex items-center justify-center gap-1.5"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>AI Scan Photo / Receipt</span>
-                    </label>
-
                     <button
                       type="button"
                       onClick={handleLoadSample}
-                      className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Sample Data</span>
+                      <span>Sample Messy CSV</span>
                     </button>
                   </div>
 
@@ -653,28 +382,18 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               <div className="mt-5 sm:mt-6 flex flex-col items-center">
                 <button 
                   type="button" 
-                  disabled={isProcessing || (!rawCSVContent && freeFilesUsed >= 3 && !isUnlimitedUser)} 
+                  disabled={isProcessing} 
                   onClick={startCleaningProcess} 
-                  className={`w-full sm:w-auto sm:min-w-[260px] px-6 sm:px-8 py-3 text-sm sm:text-base font-bold text-white rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    !isUnlimitedUser && freeFilesUsed >= 3 
-                      ? 'bg-amber-600 hover:bg-amber-700' 
-                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed'
-                  }`}
+                  className="w-full sm:w-auto sm:min-w-[260px] px-6 sm:px-8 py-3 text-sm sm:text-base font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>
-                    {!isUnlimitedUser && freeFilesUsed >= 3 
-                      ? 'Free Limit Reached (Upgrade / Log In)' 
-                      : rawCSVContent 
-                        ? 'Clean & Process File' 
-                        : 'Upload File to Clean'}
-                  </span>
+                  <span>{rawCSVContent ? 'Clean & Process CSV' : 'Try Sample or Clean CSV'}</span>
                 </button>
                 
                 {isProcessing && (
                   <div className="mt-4 w-full max-w-md space-y-1.5">
                     <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-600">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                      <span>{processingLabel} {progressPercent}%</span>
+                      <span>{t.cleaning} {progressPercent}%</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-200/80 rounded-full overflow-hidden shadow-inner">
                       <div
@@ -750,26 +469,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
               <span>{t.filesDeletedNotice}</span>
             </div>
             
-            {isUnlimitedUser ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px]">
-                <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-                <span>PRO UNLIMITED CLEANING UNLOCKED</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end">
-                <span className="font-semibold text-slate-700">
-                  {t.freeFilesUsed}: <span className="text-indigo-600 font-mono tabular-nums">{freeFilesUsed}/3</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={onNavigateToPricing}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-[11px] shadow-xs hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <Zap className="w-3 h-3 text-amber-300" />
-                  <span>Upgrade to Unlimited</span>
-                </button>
-              </div>
-            )}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px]">
+              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+              <span>100% FREE & UNLIMITED IN-BROWSER</span>
+            </div>
           </div>
         </div>
 
@@ -861,7 +564,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                             type="text"
                             value={cell}
                             onChange={(e) => handleCellEdit(originalIndex, cIdx, e.target.value)}
-                            className="w-full min-w-[130px] px-2 py-1 bg-transparent hover:bg-slate-100 focus:bg-emerald-50 border border-transparent focus:border-emerald-400 rounded outline-hidden text-slate-800"
+                            className="w-full min-w-[110px] px-2 py-1 bg-transparent hover:bg-slate-100 focus:bg-emerald-50 border border-transparent focus:border-emerald-400 rounded outline-hidden text-slate-800"
                           />
                         </td>
                       ))}
