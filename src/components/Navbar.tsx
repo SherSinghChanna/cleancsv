@@ -27,7 +27,9 @@ interface NavbarProps {
   isAdminLoggedIn: boolean;
   onLogoutAdmin: () => void;
   userName?: string;
+  userEmail?: string;
   userAvatar?: string;
+  isPro?: boolean;
   t: TranslationStrings;
 }
 
@@ -42,7 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminLoggedIn,
   onLogoutAdmin,
   userName = 'User',
+  userEmail = 'support@cleancsv.online',
   userAvatar,
+  isPro = false,
   t,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -67,10 +71,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  // ✅ Admin check covers both name, email hint, and admin session
-  const isAdmin = isAdminLoggedIn || userName === 'Sher Singh' || userName.toLowerCase().includes('sher');
+  // 🟢 असली एडमिन चेक (सिर्फ असली ओनर ईमेल पर ही एडमिन दिखेगा)
+  const cleanEmail = (userEmail || '').trim().toLowerCase();
+  const isAdmin = Boolean(
+    isAdminLoggedIn || 
+    cleanEmail === 'shersinghchanna0@gmail.com' || 
+    cleanEmail === 'support@cleancsv.online'
+  );
 
-  // ✅ Share Website Function
   const handleShare = async () => {
     try {
       if (navigator.share) {
@@ -93,7 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           
-          {/* Brand Wordmark (Left) */}
           <div className="flex items-center gap-6 shrink-0">
             <button
               type="button"
@@ -108,7 +115,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </button>
 
-            {/* Desktop Center Navigation Links */}
             <nav className="hidden md:flex items-center gap-1">
               <button
                 type="button"
@@ -122,7 +128,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {t.homeTab}
               </button>
 
-              {/* Pricing Link */}
               {isLoggedIn && (
                 <button
                   type="button"
@@ -139,10 +144,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </nav>
           </div>
 
-          {/* Right Controls */}
           <div className="flex items-center gap-2 shrink-0">
             
-            {/* Language Selector Button */}
             <button
               type="button"
               onClick={onOpenLanguageModal}
@@ -155,7 +158,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
-            {/* Share Website Button (Desktop) */}
             <button
               type="button"
               onClick={handleShare}
@@ -166,7 +168,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden lg:inline">Share</span>
             </button>
 
-            {/* Auth State */}
             {isLoggedIn ? (
               <div className="relative shrink-0" ref={userMenuRef}>
                 <button
@@ -179,9 +180,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       src={userAvatar} 
                       alt={userName}
                       className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
                     />
                   ) : (
                     <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
@@ -192,11 +190,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {/* Floating User Profile Dropdown Menu */}
                 {isUserMenuOpen && (
                   <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                     
-                    {/* User Header */}
                     <div className="px-4 py-3 border-b border-slate-100">
                       <div className="flex items-center gap-3">
                         {userAvatar ? (
@@ -213,19 +209,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="overflow-hidden">
                           <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                             <span className="truncate">{userName}</span>
-                            {isAdmin && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
+                            {isPro && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
                           </div>
                           <div className="text-[11px] text-slate-500 font-mono truncate">
-                            {isAdmin ? 'shersinghchanna0@gmail.com' : 'support@cleancsv.online'}
+                            {userEmail}
                           </div>
                           <div className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold rounded-full uppercase tracking-wider">
-                            {isAdmin ? 'YEARLY PRO · Active' : 'BASIC · Active'}
+                            {isPro ? 'PRO · Active' : 'BASIC · Active'}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Navigation Items */}
                     <div className="p-1 space-y-0.5 text-xs text-slate-700">
                       <button
                         type="button"
@@ -255,7 +250,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       </button>
 
-                      {/* Admin Button Shows for Sher Singh or Admin */}
                       {isAdmin && (
                         <button
                           type="button"
@@ -291,7 +285,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </button>
                     </div>
 
-                    {/* Footer / Log Out */}
                     <div className="p-1 pt-1.5 border-t border-slate-100">
                       <button
                         type="button"
@@ -309,14 +302,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 )}
               </div>
-            ) : currentView === 'admin' && isAdminLoggedIn ? (
-              <button
-                type="button"
-                onClick={onLogoutAdmin}
-                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-2xs shrink-0 cursor-pointer"
-              >
-                {t.logout} (Admin)
-              </button>
             ) : (
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -329,19 +314,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   type="button"
                   onClick={() => handleNavClick('auth')}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs hover:shadow transition-all whitespace-nowrap cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-all whitespace-nowrap cursor-pointer"
                 >
                   {t.getStarted}
                 </button>
               </div>
             )}
 
-            {/* Mobile Hamburger Menu Toggle */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
-              aria-label="Toggle Menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -350,125 +333,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         </div>
       </div>
-
-      {/* Mobile Slide-Down Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1 shadow-lg animate-in slide-in-from-top-2 duration-150">
-          <button
-            type="button"
-            onClick={() => handleNavClick('home')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer ${
-              currentView === 'home' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>{t.homeTab}</span>
-          </button>
-
-          {isLoggedIn && (
-            <button
-              type="button"
-              onClick={() => handleNavClick('profile')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold cursor-pointer ${
-                currentView === 'profile' ? 'bg-indigo-50 text-indigo-800' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <CreditCard className="w-4 h-4 text-indigo-600" />
-              <span>{t.pricing} / {t.profileTab}</span>
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => handleNavClick('admin')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs font-bold cursor-pointer ${
-                currentView === 'admin' 
-                  ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' 
-                  : 'bg-indigo-50/70 text-indigo-800 hover:bg-indigo-100 border border-indigo-200/60'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                <span>{t.adminTab} Console</span>
-              </div>
-              <span className="text-[10px] font-extrabold bg-indigo-600 text-white px-2 py-0.5 rounded-full">Admin</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              onOpenSupportModal();
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-          >
-            <HelpCircle className="w-4 h-4 text-slate-500" />
-            <span>{t.support}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              onOpenLanguageModal();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-          >
-            <div className="flex items-center gap-2.5">
-              <Globe className="w-4 h-4 text-indigo-600" />
-              <span>Language: {currentLangObj.label}</span>
-            </div>
-            <span>{currentLangObj.flag}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileMenuOpen(false);
-              handleShare();
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-          >
-            <Share2 className="w-4 h-4 text-indigo-600" />
-            <span>Share Website</span>
-          </button>
-
-          {isLoggedIn ? (
-            <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  onToggleLogin();
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>{t.logout}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="pt-2 border-t border-slate-100 flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleNavClick('auth')}
-                className="flex-1 py-2 text-center text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
-              >
-                {t.login}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleNavClick('auth')}
-                className="flex-1 py-2 text-center text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg cursor-pointer"
-              >
-                {t.getStarted}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </header>
   );
 };

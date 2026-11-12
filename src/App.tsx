@@ -11,7 +11,7 @@ import { SupportModal } from './components/SupportModal';
 import { supabase } from './lib/supabase';
 
 const INITIAL_PROFILE: CustomerProfileData = {
-  name: '',
+  name: 'User',
   email: '',
   avatar: '', 
   role: 'Customer',
@@ -74,16 +74,6 @@ export default function App() {
         // ignore
       }
     }
-    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
-    if (savedAdmin) {
-      return {
-        ...INITIAL_PROFILE,
-        name: 'Sher Singh',
-        email: 'shersinghchanna0@gmail.com',
-        role: 'Admin',
-        plan: 'PRO',
-      };
-    }
     return INITIAL_PROFILE;
   });
 
@@ -126,23 +116,14 @@ export default function App() {
           .order('created_at', { ascending: false });
 
         if (profilesData && profilesData.length > 0) {
-          const mappedUsers: AppUser[] = profilesData.map((p: any) => {
-            let properName = p.name;
-            if (!properName || properName === 'User') {
-              if (p.email === 'sher2861@gmail.com') properName = 'Rohit Kumar';
-              else if (p.email === 'shersinghchanna0@gmail.com') properName = 'Sher Singh';
-              else properName = p.email ? p.email.split('@')[0] : 'User';
-            }
-
-            return {
-              id: p.id,
-              name: properName,
-              email: p.email,
-              userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
-              signUpDate: new Date(p.created_at).toISOString().split('T')[0],
-              status: 'Active',
-            };
-          });
+          const mappedUsers: AppUser[] = profilesData.map((p: any) => ({
+            id: p.id,
+            name: p.name || (p.email ? p.email.split('@')[0] : 'User'),
+            email: p.email,
+            userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
+            signUpDate: new Date(p.created_at).toISOString().split('T')[0],
+            status: 'Active',
+          }));
           setUsers(mappedUsers);
 
           const totalFiles = profilesData.reduce((acc: number, cur: any) => acc + (Number(cur.cleaned_count) || 0), 0);
@@ -156,19 +137,23 @@ export default function App() {
     fetchSupabaseData();
   }, []);
 
-  const loggedInAppUser = users.find(u => u.email.toLowerCase() === profile.email.toLowerCase());
-  const isUserPro = Boolean(
-    profile.plan === 'PRO' ||
-    profile.role === 'Admin' ||
-    loggedInAppUser?.userType === 'Premium' ||
-    loggedInAppUser?.userType === 'Admin' ||
+  // 🟢 असली एडमिन चेक (सिर्फ तभी जब ईमेल सच में एडमिन का हो)
+  const isActualAdmin = Boolean(
+    isAdminLoggedIn || 
     profile.email.toLowerCase() === 'shersinghchanna0@gmail.com' ||
     profile.email.toLowerCase() === 'support@cleancsv.online'
   );
 
+  const isUserPro = Boolean(
+    isActualAdmin ||
+    profile.plan === 'PRO' ||
+    profile.role === 'Admin' ||
+    profile.subscription_plan === 'PRO'
+  );
+
   const currentUserData = {
     ...profile,
-    userType: isUserPro ? 'Premium' : (loggedInAppUser?.userType || 'Basic'),
+    userType: isUserPro ? 'Premium' : 'Basic',
     is_pro: isUserPro,
     subscription_plan: isUserPro ? 'PRO' : 'BASIC',
     plan: isUserPro ? 'PRO' : profile.plan,
@@ -179,7 +164,6 @@ export default function App() {
       return;
     }
 
-    // 🟢 स्मार्ट पास: नया यूज़र 1 फाइल बिना लॉगिन के फ्री में क्लीन कर सकता है, दूसरी फाइल पर लॉगिन मांगेगा
     if (!isLoggedIn && freeFilesUsed >= 1) {
       handleNavigateView('auth');
       return;
@@ -211,17 +195,6 @@ export default function App() {
       localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
       return updated;
     });
-
-    if (profile.email) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ cleaned_count: (profile.totalCleanedFiles || 0) + 1 })
-          .eq('email', profile.email.toLowerCase());
-      } catch (e) {
-        console.error('Error saving cleaned count to DB:', e);
-      }
-    }
   };
 
   const handlePlanPurchased = async (planName: any, price: number) => {
@@ -240,54 +213,17 @@ export default function App() {
     };
     setSales((prev) => [newSale, ...prev]);
 
-    try {
-      await supabase.from('sales_ledger').insert([{
-        user_email: userEmail,
-        plan_name: fileName,
-        amount: price,
-        sales_type: salesType
-      }]);
-    } catch (e) {
-      console.error('Supabase sales insert error:', e);
-    }
-
     if (isProPlan) {
       setProfile((prev) => {
         const updated = { ...prev, plan: 'PRO' as const };
         localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
         return updated;
       });
-      setUsers((prev) => prev.map(u => {
-        if (u.email.toLowerCase() === profile.email.toLowerCase()) {
-          return { ...u, userType: 'Premium' };
-        }
-        return u;
-      }));
-
-      try {
-        await supabase
-          .from('profiles')
-          .update({ plan: 'PRO' })
-          .eq('email', userEmail.toLowerCase());
-      } catch (e) {
-        console.error('Supabase profile update error:', e);
-      }
     }
   };
 
   const handleAddLiveSale = async (newSale: Sale) => {
     setSales((prev) => [newSale, ...prev]);
-
-    try {
-      await supabase.from('sales_ledger').insert([{
-        user_email: newSale.user,
-        plan_name: newSale.fileName,
-        amount: newSale.price,
-        sales_type: newSale.salesType
-      }]);
-    } catch (e) {
-      console.error('Supabase live sale insert error:', e);
-    }
   };
 
   const handleUpdateProfile = (updated: Partial<CustomerProfileData>) => {
@@ -305,15 +241,12 @@ export default function App() {
     const cleanEmail = email.trim().toLowerCase();
     const isOwner = cleanEmail === 'support@cleancsv.online' || cleanEmail === 'shersinghchanna0@gmail.com';
 
-    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
-    const existingPlan = (isOwner || existing?.userType === 'Premium') ? 'PRO' : 'BASIC';
-
     const newProfile: CustomerProfileData = {
       ...profile,
-      name: name || (isOwner ? 'Sher Singh' : 'Customer'),
+      name: name || (isOwner ? 'Sher Singh' : 'User'),
       email: email,
       role: isOwner ? 'Admin' : 'Customer',
-      plan: existingPlan,
+      plan: isOwner ? 'PRO' : 'BASIC',
     };
 
     setProfile(newProfile);
@@ -323,23 +256,6 @@ export default function App() {
       setIsAdminLoggedIn(true);
       localStorage.setItem('cleancsv_admin_logged_in', 'true');
     }
-
-    setUsers((prev) => {
-      if (prev.some((u) => u.email.toLowerCase() === cleanEmail)) {
-        return prev;
-      }
-      return [
-        {
-          id: `u_${Date.now()}`,
-          name: name || (isOwner ? 'Sher Singh' : 'Customer'),
-          email,
-          userType: isOwner ? 'Premium' : 'Basic',
-          signUpDate: new Date().toISOString().split('T')[0],
-          status: 'Active',
-        },
-        ...prev,
-      ];
-    });
     
     handleNavigateView('home'); 
   };
@@ -380,13 +296,7 @@ export default function App() {
     >
       <Navbar
         currentView={currentView}
-        onNavigate={(view) => {
-          if (view === 'admin') {
-            handleNavigateView('admin');
-          } else {
-            handleNavigateView(view);
-          }
-        }}
+        onNavigate={(view) => handleNavigateView(view)}
         currentLanguage={currentLanguage}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenSupportModal={() => setIsSupportModalOpen(true)}
@@ -399,7 +309,9 @@ export default function App() {
           handleNavigateView('home');
         }}
         userName={profile.name}
+        userEmail={profile.email}
         userAvatar={profile.avatar}
+        isPro={isUserPro}
         t={t}
       />
 
