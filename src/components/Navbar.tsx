@@ -71,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  // 🟢 असली एडमिन चेक (सिर्फ असली ओनर ईमेल पर ही एडमिन दिखेगा)
+  // 🟢 असली एडमिन चेक (सिर्फ तभी जब सच में एडमिन ईमेल हो)
   const cleanEmail = (userEmail || '').trim().toLowerCase();
   const isAdmin = Boolean(
     isAdminLoggedIn || 

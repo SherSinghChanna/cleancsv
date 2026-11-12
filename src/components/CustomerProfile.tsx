@@ -37,26 +37,20 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   userEmail,
   userName,
 }) => {
-  // 🟢 सही और एक जैसा ईमेल दिखाने के लिए फिक्स
-  const displayEmail = profile?.email || userEmail || localStorage.getItem('cleancsv_user_email') || 'shersinghchanna0@gmail.com';
-  const displayName = profile?.name || userName || (displayEmail.includes('shersingh') ? 'Sher Singh' : 'Customer');
+  const displayEmail = profile?.email || userEmail || 'support@cleancsv.online';
+  const displayName = profile?.name || userName || 'Customer';
 
-  // 🟢 प्रो स्टेटस और एडमिन ईमेल चेक को बिल्कुल पक्का किया गया
   const isPro = Boolean(
     profile?.is_pro === true ||
     profile?.subscription_plan === 'PRO' ||
     profile?.plan === 'PRO' ||
     profile?.userType === 'Premium' ||
-    profile?.userType === 'Admin' ||
-    displayEmail.toLowerCase() === 'shersinghchanna0@gmail.com' ||
-    displayEmail.toLowerCase() === 'support@cleancsv.online'
+    profile?.userType === 'Admin'
   );
 
   const currentPlan = isPro ? 'PRO UNLIMITED' : (profile?.plan || 'BASIC');
 
   const [feedback, setFeedback] = useState<string | null>(null);
-
-  // PayPal Checkout State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number }>({
     name: 'Monthly Pro',
@@ -124,7 +118,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </div>
       )}
 
-      {/* PayPal & UPI Modal */}
       <PayPalCheckoutModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -135,7 +128,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         
-        {/* Profile Header */}
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
@@ -178,7 +170,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           </div>
         </div>
 
-        {/* Subscription & Usage Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           <div className="md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
@@ -240,125 +231,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
         </div>
 
-        {/* Pricing Cards */}
-        {!isPro && (
-          <div className="space-y-6 pt-4">
-            <div className="text-center max-w-xl mx-auto">
-              <h2 className="text-2xl font-extrabold text-slate-900">Upgrade Your Plan</h2>
-              <p className="text-xs text-slate-500 mt-1">High-throughput automated CSV data cleaning and instant conversion.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* PLAN 1 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-emerald-300 transition flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> 1-Day Access
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900 mt-2">24h Day Pass</h3>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-slate-900">$0.99</span>
-                    <span className="text-xs text-slate-500">/ 24 hours</span>
-                  </div>
-                  <ul className="mt-5 space-y-2.5 text-xs text-slate-600">
-                    <li className="flex items-center gap-2 font-medium text-slate-900">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Unlimited cleanings for 24h
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> No subscription required
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePlanSelect('24h Day Pass', 0.99)}
-                  className="mt-6 w-full py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-xs transition cursor-pointer"
-                >
-                  Get Day Pass ($0.99)
-                </button>
-              </div>
-
-              {/* PLAN 2 */}
-              <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-indigo-600 relative flex flex-col justify-between">
-                <span className="absolute -top-3 left-6 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                  Most Popular
-                </span>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-bold text-slate-900">Monthly Pro</h3>
-                    <Sparkles className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-slate-900">$1.99</span>
-                    <span className="text-xs text-slate-500">/ month</span>
-                  </div>
-                  <ul className="mt-5 space-y-2.5 text-xs text-slate-600">
-                    <li className="flex items-center gap-2 font-semibold text-indigo-700">
-                      <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Unlimited cleanings all month
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Auto-header & date formatting
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePlanSelect('Monthly Pro', 1.99)}
-                  className="mt-6 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-sm cursor-pointer"
-                >
-                  Subscribe ($1.99/mo)
-                </button>
-              </div>
-
-              {/* PLAN 3 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-indigo-300 transition flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    Best Value (Save 60%)
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900 mt-2">Yearly Pass</h3>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-slate-900">$9.99</span>
-                    <span className="text-xs text-slate-500">/ year</span>
-                  </div>
-                  <ul className="mt-5 space-y-2.5 text-xs text-slate-600">
-                    <li className="flex items-center gap-2 font-medium text-slate-900">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> 1 full year unlimited access
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Batch CSV processing
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePlanSelect('Yearly Pass', 9.99)}
-                  className="mt-6 w-full py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-xs transition cursor-pointer"
-                >
-                  Get Full Year ($9.99)
-                </button>
-              </div>
-
-            </div>
-          </div>
-        )}
-
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-8 px-6 text-xs text-slate-500 mt-16">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-6">
-            <span className="font-semibold text-slate-800">CleanCSV</span>
-            <button type="button" onClick={handleGoToCleaner} className="hover:text-slate-800 transition cursor-pointer">Cleaner</button>
-            <a href="mailto:support@cleancsv.online" className="hover:text-slate-800 font-mono transition">support@cleancsv.online</a>
-          </div>
-          <div className="text-[11px] text-slate-400">
-            © 2026 CleanCSV. All rights reserved.
-          </div>
-        </div>
-      </footer>
 
     </div>
   );
