@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TranslationStrings } from '../translations';
 import { Sale, AppUser, CleanedFile } from '../types';
+import { supabase } from '../lib/supabase';
 import { 
   Lock, 
   DollarSign, 
@@ -15,8 +16,11 @@ import {
   ArrowLeft,
   FileSpreadsheet,
   Activity,
-  ShieldCheck
+  ShieldCheck,
+  Crown
 } from 'lucide-react';
+
+const SOLE_ADMIN_EMAIL = 'shersinghchanna0@gmail.com';
 
 interface AdminDashboardProps {
   t: TranslationStrings;
@@ -30,6 +34,7 @@ interface AdminDashboardProps {
   onUpdateUsers: React.Dispatch<React.SetStateAction<AppUser[]>>;
   cleanedFilesHistory: CleanedFile[];
   totalCleanedFiles: number;
+  onAdminUpgradeEmail?: (targetEmail: string, targetPlan: 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS') => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -44,10 +49,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateUsers,
   cleanedFilesHistory,
   totalCleanedFiles,
+  onAdminUpgradeEmail,
 }) => {
-  const [adminUsername, setAdminUsername] = useState('shersinghchanna0@gmail.com');
+  const [adminUsername, setAdminUsername] = useState(SOLE_ADMIN_EMAIL);
   const [adminPassword, setAdminPassword] = useState('QwertyuiopSarbSher@1310');
   const [loginError, setLoginError] = useState('');
+
+  // किसी भी ईमेल या खुद को तुरंत अपग्रेड करने के लिए स्टेट
+  const [quickUpgradeEmail, setQuickUpgradeEmail] = useState('');
+  const [quickUpgradePlan, setQuickUpgradePlan] = useState<'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS'>('PRO');
 
   const [liveClock, setLiveClock] = useState<string>(new Date().toLocaleTimeString());
   useEffect(() => {
@@ -57,7 +67,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // ऑटो-लॉगिन चेक (पेज रिफ्रेश होने पर लॉगआउट रोकने के लिए)
   useEffect(() => {
     const savedAdminSession = localStorage.getItem('cleancsv_admin_logged_in');
     if (savedAdminSession === 'true' && !isAdminLoggedIn) {
@@ -75,7 +84,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newUserType, setNewUserType] = useState<'Basic' | 'Premium'>('Premium');
 
   const [showAddSaleModal, setShowAddSaleModal] = useState(false);
-  const [newSalePlan, setNewSalePlan] = useState<'DAY PASS' | 'MONTHLY PRO' | 'YEARLY PASS'>('MONTHLY PRO');
+  const [newSalePlan, setNewSalePlan] = useState<'PRO' | 'YEARLY_PRO' | 'BUSINESS'>('PRO');
   const [newSaleUser, setNewSaleUser] = useState('');
   const [newSaleFileName, setNewSaleFileName] = useState('');
   const [actionSuccessNotice, setActionSuccessNotice] = useState<string | null>(null);
@@ -84,24 +93,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     const cleanUser = adminUsername.trim().toLowerCase();
     const enteredPass = adminPassword.trim();
-    
-    const validEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'shersinghchanna0@gmail.com').trim().toLowerCase();
     const validPassword = (import.meta.env.VITE_ADMIN_PASSWORD || 'QwertyuiopSarbSher@1310').trim();
 
-    const isUserValid = (
-      cleanUser === validEmail || 
-      cleanUser === 'support@cleancsv.online' ||
-      cleanUser === 'shersinghchanna0@gmail.com' ||
-      cleanUser === 'channa' || 
-      cleanUser === 'admin'
-    );
-
-    if (isUserValid && enteredPass === validPassword) {
+    if (cleanUser === SOLE_ADMIN_EMAIL && enteredPass === validPassword) {
       setLoginError('');
       localStorage.setItem('cleancsv_admin_logged_in', 'true');
       onLoginAdmin();
     } else {
-      setLoginError('Access Denied: Invalid Admin Identifier or Password.');
+      setLoginError('Access Denied: Only shersinghchanna0@gmail.com is authorized as Admin.');
     }
   };
 
@@ -119,59 +118,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   };
 
-  const handleChangeUserPlan = (userId: string, newType: 'Basic' | 'Premium') => {
-    onUpdateUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return { ...u, userType: newType };
+  // किसी भी यूज़र या खुद का प्लान बदलने का मास्टर फ़ंक्शन (Local + Supabase दोनों में)
+  const applyPlanToUserEmail = async (emailInput: string, planId: 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS') => {
+    const cleanTarget = emailInput.trim().toLowerCase();
+    if (!cleanTarget) return;
+
+    const mappedUserType: 'Basic' | 'Premium' = planId === 'BASIC' ? 'Basic' : 'Premium';
+
+    // 1. Users लिस्ट में अपडेट करें (अगर यूज़र लिस्ट में नहीं है तो जोड़ दें)
+    onUpdateUsers((prev) => {
+      const exists = prev.some((u) => u.email.trim().toLowerCase() === cleanTarget);
+      if (exists) {
+        return prev.map((u) =>
+          u.email.trim().toLowerCase() === cleanTarget
+            ? { ...u, userType: cleanTarget === SOLE_ADMIN_EMAIL ? 'Admin' : mappedUserType }
+            : u
+        );
       }
-      return u;
-    }));
-    setActionSuccessNotice(`User plan updated to ${newType}!`);
-    setTimeout(() => setActionSuccessNotice(null), 3000);
+      const newEntry: AppUser = {
+        id: `u_${Date.now()}`,
+        name: cleanTarget.split('@')[0],
+        email: cleanTarget,
+        userType: cleanTarget === SOLE_ADMIN_EMAIL ? 'Admin' : mappedUserType,
+        signUpDate: new Date().toISOString().split('T')[0],
+        status: 'Active',
+      };
+      return [newEntry, ...prev];
+    });
+
+    // 2. App.tsx और LocalStorage के ज़रिए उस ईमेल के लिए प्लान सेव करें
+    if (onAdminUpgradeEmail) {
+      onAdminUpgradeEmail(cleanTarget, planId);
+    }
+
+    // 3. Supabase के profiles टेबल में भी अपडेट करने की कोशिश करें
+    try {
+      await supabase
+        .from('profiles')
+        .update({ plan: planId })
+        .ilike('email', cleanTarget);
+    } catch {
+      // ignore if offline
+    }
+
+    setActionSuccessNotice(`Upgraded ${cleanTarget} to ${planId} plan immediately!`);
+    setTimeout(() => setActionSuccessNotice(null), 4000);
+  };
+
+  const handleChangeUserPlan = (user: AppUser, selectedPlanId: 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS') => {
+    applyPlanToUserEmail(user.email, selectedPlanId);
+  };
+
+  const handleQuickUpgradeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickUpgradeEmail.trim()) return;
+    applyPlanToUserEmail(quickUpgradeEmail, quickUpgradePlan);
+    setQuickUpgradeEmail('');
   };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) return;
 
+    const cleanMail = newUserEmail.trim().toLowerCase();
     const newUser: AppUser = {
       id: `u_${Date.now()}`,
       name: newUserName.trim(),
-      email: newUserEmail.trim(),
-      userType: newUserType,
+      email: cleanMail,
+      userType: cleanMail === SOLE_ADMIN_EMAIL ? 'Admin' : newUserType,
       signUpDate: new Date().toISOString().split('T')[0],
       status: 'Active',
     };
 
     onUpdateUsers(prev => [newUser, ...prev]);
+    if (onAdminUpgradeEmail) {
+      onAdminUpgradeEmail(cleanMail, newUserType === 'Premium' ? 'PRO' : 'BASIC');
+    }
     setNewUserName('');
     setNewUserEmail('');
     setShowAddUserModal(false);
-    setActionSuccessNotice(`Customer ${newUser.name} added live!`);
+    setActionSuccessNotice(`Customer ${newUser.name} (${newUser.email}) added with ${newUserType} access!`);
     setTimeout(() => setActionSuccessNotice(null), 3000);
   };
 
   const handleCreateSale = (e: React.FormEvent) => {
     e.preventDefault();
-    const price = newSalePlan === 'DAY PASS' ? 0.99 : newSalePlan === 'MONTHLY PRO' ? 1.99 : 9.99;
-    const userEmail = newSaleUser.trim() || 'customer@cleancsv.io';
-    const fileName = newSaleFileName.trim() || `${newSalePlan} Subscription`;
+    const price = newSalePlan === 'PRO' ? 1.99 : newSalePlan === 'YEARLY_PRO' ? 15 : 19;
+    const userEmail = newSaleUser.trim() || 'customer@cleancsv.online';
+    const fileName = newSaleFileName.trim() || `${newSalePlan} Subscription ($${price})`;
 
     const newSaleItem: Sale = {
       id: `sale_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
       fileName,
-      salesType: newSalePlan === 'DAY PASS' ? 'Basic' : 'Premium',
+      salesType: 'Premium',
       price,
       user: userEmail,
     };
 
     onAddSale(newSaleItem);
+    applyPlanToUserEmail(userEmail, newSalePlan);
     setShowAddSaleModal(false);
     setNewSaleUser('');
     setNewSaleFileName('');
-    setActionSuccessNotice(`Live sale recorded: $${price} (${newSalePlan})!`);
-    setTimeout(() => setActionSuccessNotice(null), 3500);
   };
 
   const filteredUsers = users.filter(user => {
@@ -186,6 +235,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const totalEarnings = sales.reduce((acc, curr) => acc + curr.price, 0);
   const totalSales = sales.length;
   const totalCustomers = users.length;
+
+  // चेक करें कि किसी ईमेल का कौन-सा सटीक प्लान सेव है
+  const getSavedPlanForEmail = (email: string, fallbackType: string): 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS' => {
+    try {
+      const mapRaw = localStorage.getItem('cleancsv_admin_plan_overrides');
+      if (mapRaw) {
+        const map = JSON.parse(mapRaw);
+        const found = map[email.trim().toLowerCase()];
+        if (found) return found;
+      }
+    } catch {
+      // ignore
+    }
+    return fallbackType === 'Premium' || fallbackType === 'Admin' ? 'PRO' : 'BASIC';
+  };
 
   if (!isAdminLoggedIn) {
     return (
@@ -211,7 +275,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Sher Singh · Admin Portal
           </h2>
           <p className="text-xs text-slate-500 mb-6">
-            Authorized administration console for Sher Singh
+            Authorized exclusively for {SOLE_ADMIN_EMAIL}
           </p>
 
           {loginError && (
@@ -223,11 +287,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <form onSubmit={handleAdminLoginSubmit} className="space-y-3.5 text-xs text-left">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Authorized Admin Email / Username
+                Authorized Admin Email
               </label>
               <input
-                type="text"
-                placeholder="Enter admin ID or email"
+                type="email"
+                placeholder="shersinghchanna0@gmail.com"
                 value={adminUsername}
                 onChange={(e) => setAdminUsername(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white font-medium"
@@ -292,16 +356,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Sher Singh's Master Admin Console
                 </h1>
                 <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold uppercase border border-amber-300">
-                  👑 SOLE OWNER & ADMIN
+                  👑 SOLE OWNER ({SOLE_ADMIN_EMAIL})
                 </span>
                 
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-bold">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  LIVE DATA FEED · {liveClock}
+                  LIVE · {liveClock}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Owner: Sher Singh · Real-Time Dynamic Ledger
+                Full Plan & User Upgrade Control (Self & Any Customer)
               </p>
             </div>
           </div>
@@ -359,6 +423,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span>{actionSuccessNotice}</span>
           </div>
         )}
+
+        {/* 🟢 NEW: Instant Upgrade Any User or Self Bar */}
+        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-md border border-indigo-500/30">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                <Crown className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold">
+                  Instant Plan Upgrade (Self or Any Customer Email)
+                </h3>
+                <p className="text-xs text-slate-300">
+                  Enter any user email (e.g. sher13101993@gmail.com) or click &quot;Upgrade My Admin Account&quot; to assign any of the 4 plans for free.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleQuickUpgradeSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <input
+                type="email"
+                placeholder="Enter user email (e.g. sher13101993@gmail.com)"
+                value={quickUpgradeEmail}
+                onChange={(e) => setQuickUpgradeEmail(e.target.value)}
+                className="px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-400 text-xs font-mono focus:outline-hidden focus:border-emerald-400 min-w-[240px]"
+              />
+              <select
+                value={quickUpgradePlan}
+                onChange={(e) => setQuickUpgradePlan(e.target.value as any)}
+                className="px-3 py-2 rounded-xl bg-slate-800 border border-white/20 text-white text-xs font-bold cursor-pointer"
+              >
+                <option value="BASIC">Free Basic ($0)</option>
+                <option value="PRO">Unlimited Pro ($1.99/mo)</option>
+                <option value="YEARLY_PRO">Yearly Pro ($15/yr)</option>
+                <option value="BUSINESS">Business Team ($19/mo)</option>
+              </select>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                Upgrade User Now
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPlanToUserEmail(SOLE_ADMIN_EMAIL, quickUpgradePlan)}
+                className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                Apply to Self
+              </button>
+            </form>
+          </div>
+        </div>
 
         {/* Top 4 KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -427,159 +543,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        {/* Middle Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-xs border border-slate-200 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                  Platform Traffic Status
-                </h3>
-                <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Global CDN Active
-                </span>
-              </div>
-
-              <div className="space-y-4 py-2">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-600">Paywall Enforcement:</span>
-                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md text-[10px]">3 Free CSVs Allowed</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Free tier customers are automatically redirected to upgrade after 3 files.</p>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-600">PayPal Gateway:</span>
-                    <span className="text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md text-[10px]">Live Production</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Processed via instant client capture ($0.99, $1.99, $9.99).</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Data processed in browser memory (Zero Retention)
-              </span>
-              <span className="font-mono text-emerald-600 font-medium">{liveClock}</span>
-            </div>
-          </div>
-
-          {/* Interactive Ledger */}
-          <div className="lg:col-span-7 bg-white rounded-2xl p-6 shadow-xs border border-slate-200 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActiveTab('sales')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      activeTab === 'sales' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    {t.recentSales} ({sales.length})
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('operations')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      activeTab === 'operations' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Cleaned Files ({cleanedFilesHistory.length})
-                  </button>
-                </div>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  {activeTab === 'sales' ? 'Real-time sales feed' : 'CSV engine real-time activity'}
-                </span>
-              </div>
-
-              {activeTab === 'sales' && (
-                <div className="overflow-x-auto max-h-72 overflow-y-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="border-b border-slate-200 text-slate-400 font-semibold text-[11px]">
-                        <th className="pb-2.5">Date</th>
-                        <th className="pb-2.5">Plan / Order</th>
-                        <th className="pb-2.5">Sales Type</th>
-                        <th className="pb-2.5">Price</th>
-                        <th className="pb-2.5">User</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {sales.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                            {sale.date}
-                          </td>
-                          <td className="py-2.5 font-medium text-slate-900 font-mono text-[11px] whitespace-nowrap">
-                            {sale.fileName}
-                          </td>
-                          <td className="py-2.5 whitespace-nowrap">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                              sale.salesType === 'Premium' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {sale.salesType}
-                            </span>
-                          </td>
-                          <td className="py-2.5 font-bold text-slate-900 font-mono tabular-nums whitespace-nowrap">
-                            ${sale.price.toFixed(2)}
-                          </td>
-                          <td className="py-2.5 text-slate-500 text-[11px] whitespace-nowrap">
-                            {sale.user}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {activeTab === 'operations' && (
-                <div className="overflow-x-auto max-h-72 overflow-y-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="border-b border-slate-200 text-slate-400 font-semibold text-[11px]">
-                        <th className="pb-2.5">Cleaned Time</th>
-                        <th className="pb-2.5">File Name</th>
-                        <th className="pb-2.5">Rows</th>
-                        <th className="pb-2.5">Duplicates Removed</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {cleanedFilesHistory.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                            {item.cleanedAt}
-                          </td>
-                          <td className="py-2.5 font-medium text-slate-900 font-mono text-[11px] whitespace-nowrap">
-                            {item.name}
-                          </td>
-                          <td className="py-2.5 font-mono text-slate-700 text-[11px] whitespace-nowrap">
-                            {item.stats.rowsProcessed.toLocaleString()} rows
-                          </td>
-                          <td className="py-2.5 font-mono text-emerald-600 font-semibold text-[11px] whitespace-nowrap">
-                            -{item.stats.duplicatesRemoved} dupes
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live state linked to CSV engine & user subscriptions
-              </span>
-              <span className="text-emerald-600 font-semibold">100% Live Sync</span>
-            </div>
-          </div>
-        </div>
-
         {/* ALL USERS LIST */}
         <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
@@ -588,7 +551,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {t.allUsersList} ({filteredUsers.length})
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Managed accounts and client profiles in CleanCSV
+                Select any plan from the dropdown to immediately upgrade or change any user&apos;s plan
               </p>
             </div>
 
@@ -620,62 +583,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
                   <th className="py-3 px-3.5">{t.userName}</th>
                   <th className="py-3 px-3.5">{t.email}</th>
-                  <th className="py-3 px-3.5">Change Plan Tier</th>
+                  <th className="py-3 px-3.5">Assign Plan (4 Tiers)</th>
                   <th className="py-3 px-3.5">{t.signUpDate}</th>
                   <th className="py-3 px-3.5">{t.accountStatus}</th>
                   <th className="py-3 px-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-3.5 font-bold text-slate-900 whitespace-nowrap">
-                      {user.name}
-                    </td>
-                    <td className="py-3 px-3.5 text-slate-600 font-mono text-[11px] whitespace-nowrap">
-                      {user.email}
-                    </td>
-                    <td className="py-3 px-3.5 whitespace-nowrap">
-                      {user.userType === 'Admin' ? (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-50 text-rose-700">
-                          Admin
-                        </span>
-                      ) : (
+                {filteredUsers.map((user) => {
+                  const isRowAdmin = user.email.trim().toLowerCase() === SOLE_ADMIN_EMAIL;
+                  const currentSavedPlan = getSavedPlanForEmail(user.email, user.userType);
+
+                  return (
+                    <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-3.5 font-bold text-slate-900 whitespace-nowrap flex items-center gap-1.5">
+                        <span>{user.name}</span>
+                        {isRowAdmin && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-900">
+                            👑 Admin
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3.5 text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                        {user.email}
+                      </td>
+                      <td className="py-3 px-3.5 whitespace-nowrap">
                         <select
-                          value={user.userType}
-                          onChange={(e) => handleChangeUserPlan(user.id, e.target.value as any)}
-                          className="px-2 py-1 text-[11px] rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                          value={currentSavedPlan}
+                          onChange={(e) => handleChangeUserPlan(user, e.target.value as any)}
+                          className="px-2.5 py-1 text-[11px] rounded-lg border border-slate-300 bg-white font-bold text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500"
                         >
-                          <option value="Basic">Basic (Free / 3 files)</option>
-                          <option value="Premium">Premium (Unlimited Pro)</option>
+                          <option value="BASIC">Free Basic ($0)</option>
+                          <option value="PRO">Unlimited Pro ($1.99/mo)</option>
+                          <option value="YEARLY_PRO">Yearly Pro ($15/yr)</option>
+                          <option value="BUSINESS">Business Team ($19/mo)</option>
                         </select>
-                      )}
-                    </td>
-                    <td className="py-3 px-3.5 text-slate-500 font-mono tabular-nums whitespace-nowrap">
-                      {user.signUpDate}
-                    </td>
-                    <td className="py-3 px-3.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        user.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                      {user.userType !== 'Admin' && (
-                        <button
-                          onClick={() => handleToggleUserStatus(user.id)}
-                          className={`text-[11px] font-semibold underline cursor-pointer ${
-                            user.status === 'Active' ? 'text-slate-500 hover:text-rose-600' : 'text-emerald-600 hover:text-emerald-700'
-                          }`}
-                        >
-                          {user.status === 'Active' ? 'Suspend' : 'Activate'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3 px-3.5 text-slate-500 font-mono tabular-nums whitespace-nowrap">
+                        {user.signUpDate}
+                      </td>
+                      <td className="py-3 px-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          user.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                        {!isRowAdmin && (
+                          <button
+                            onClick={() => handleToggleUserStatus(user.id)}
+                            className={`text-[11px] font-semibold underline cursor-pointer ${
+                              user.status === 'Active' ? 'text-slate-500 hover:text-rose-600' : 'text-emerald-600 hover:text-emerald-700'
+                            }`}
+                          >
+                            {user.status === 'Active' ? 'Suspend' : 'Activate'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -683,13 +652,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       </div>
 
-      {/* Record Live Sale Modal */}
+      {/* Record Live Sale Modal (Updated with your 4 Plans) */}
       {showAddSaleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Record Live Sale / Subscription</h3>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Record Live Sale & Upgrade User</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Enter payment details to instantly update live earnings and sales ledger.
+              Select a plan to record revenue and automatically upgrade that customer&apos;s email.
             </p>
 
             <form onSubmit={handleCreateSale} className="space-y-3.5 text-xs">
@@ -698,33 +667,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setNewSalePlan('DAY PASS')}
+                    onClick={() => setNewSalePlan('PRO')}
                     className={`py-2 px-3 rounded-xl border text-center font-bold cursor-pointer transition-all ${
-                      newSalePlan === 'DAY PASS' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
+                      newSalePlan === 'PRO' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
                     }`}
                   >
-                    <div>DAY PASS</div>
-                    <div className="text-[11px] text-emerald-600">$0.99 / 24h</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewSalePlan('MONTHLY PRO')}
-                    className={`py-2 px-3 rounded-xl border text-center font-bold cursor-pointer transition-all ${
-                      newSalePlan === 'MONTHLY PRO' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
-                    }`}
-                  >
-                    <div>MONTHLY PRO</div>
+                    <div>UNLIMITED PRO</div>
                     <div className="text-[11px] text-emerald-600">$1.99 / mo</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setNewSalePlan('YEARLY PASS')}
+                    onClick={() => setNewSalePlan('YEARLY_PRO')}
                     className={`py-2 px-3 rounded-xl border text-center font-bold cursor-pointer transition-all ${
-                      newSalePlan === 'YEARLY PASS' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
+                      newSalePlan === 'YEARLY_PRO' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
                     }`}
                   >
-                    <div>YEARLY PASS</div>
-                    <div className="text-[11px] text-emerald-600">$9.99 / yr</div>
+                    <div>YEARLY PRO</div>
+                    <div className="text-[11px] text-emerald-600">$15 / yr</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewSalePlan('BUSINESS')}
+                    className={`py-2 px-3 rounded-xl border text-center font-bold cursor-pointer transition-all ${
+                      newSalePlan === 'BUSINESS' ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    <div>BUSINESS</div>
+                    <div className="text-[11px] text-emerald-600">$19 / mo</div>
                   </button>
                 </div>
               </div>
@@ -747,7 +716,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="text"
                   value={newSaleFileName}
                   onChange={(e) => setNewSaleFileName(e.target.value)}
-                  placeholder="e.g. PayPal Payment #4928"
+                  placeholder="e.g. PayPal Payment"
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -755,7 +724,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex justify-between items-center text-xs">
                 <span className="text-slate-600 font-medium">Live Amount to Add:</span>
                 <span className="font-extrabold text-emerald-600 text-sm font-mono">
-                  {newSalePlan === 'DAY PASS' ? '$0.99' : newSalePlan === 'MONTHLY PRO' ? '$1.99' : '$9.99'}
+                  {newSalePlan === 'PRO' ? '$1.99' : newSalePlan === 'YEARLY_PRO' ? '$15.00' : '$19.00'}
                 </span>
               </div>
 
@@ -771,7 +740,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="submit"
                   className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 cursor-pointer shadow-xs"
                 >
-                  Record Live Transaction
+                  Record & Upgrade
                 </button>
               </div>
             </form>
@@ -817,8 +786,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onChange={(e) => setNewUserType(e.target.value as any)}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 bg-white"
                 >
-                  <option value="Basic">Basic (Free / 3 files)</option>
-                  <option value="Premium">Premium ($1.99/mo or $9.99/yr)</option>
+                  <option value="Basic">Free Basic ($0 - Unlimited CSV)</option>
+                  <option value="Premium">Unlimited Pro / Business</option>
                 </select>
               </div>
 

@@ -10,13 +10,27 @@ import { LanguageModal } from './components/LanguageModal';
 import { SupportModal } from './components/SupportModal';
 import { supabase } from './lib/supabase';
 
+const ADMIN_EMAIL = 'shersinghchanna0@gmail.com';
+
+const getSavedPlanOverride = (email: string): 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS' | null => {
+  if (!email) return null;
+  try {
+    const raw = localStorage.getItem('cleancsv_admin_plan_overrides');
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    return map[email.trim().toLowerCase()] || null;
+  } catch {
+    return null;
+  }
+};
+
 const INITIAL_PROFILE: CustomerProfileData = {
   name: 'User',
   email: '',
   avatar: '', 
   role: 'Customer',
   plan: 'BASIC',
-  expiryDate: 'N/A',
+  expiryDate: 'Forever Free',
   autoRenewal: false,
   totalCleanedFiles: 0,
   paymentMethod: {
@@ -51,18 +65,36 @@ export default function App() {
     return INITIAL_PROFILE;
   });
 
-  // 🟢 पक्का चेक: क्या वाकई में एडमिन ईमेल है?
-  const cleanCurrentEmail = (profile.email || '').trim().toLowerCase();
-  const isOwnerEmail = cleanCurrentEmail === 'shersinghchanna0@gmail.com' || cleanCurrentEmail === 'support@cleancsv.online';
-
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    return isOwnerEmail && localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+    const savedProfile = localStorage.getItem('cleancsv_user_profile');
+    if (savedProfile) {
+      try {
+        const parsed = JSON.parse(savedProfile);
+        return (parsed.email || '').trim().toLowerCase() === ADMIN_EMAIL;
+      } catch {
+        return false;
+      }
+    }
+    return false;
   });
 
   const [currentView, setCurrentView] = useState<NavView>(() => {
     const savedView = localStorage.getItem('cleancsv_current_view') as NavView;
-    if (isOwnerEmail && savedView === 'admin') return 'admin';
-    return savedView === 'admin' ? 'home' : (savedView || 'home');
+    if (savedView === 'admin') {
+      const savedProfile = localStorage.getItem('cleancsv_user_profile');
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          if ((parsed.email || '').trim().toLowerCase() === ADMIN_EMAIL) {
+            return 'admin';
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return 'home';
+    }
+    return savedView || 'home';
   });
 
   const [currentLanguage, setCurrentLanguage] = useState<Language>('en');
@@ -86,19 +118,40 @@ export default function App() {
 
   const t = translations[currentLanguage];
 
+  const cleanEmail = (profile.email || '').trim().toLowerCase();
+  const isActualAdmin = cleanEmail === ADMIN_EMAIL;
+
+  // अगर Admin ने किसी ईमेल को अपग्रेड किया है, तो उसका नया प्लान लागू करें
+  const adminOverridePlan = getSavedPlanOverride(cleanEmail);
+  const effectivePlan = adminOverridePlan || (isActualAdmin ? 'PRO' : (profile.plan || 'BASIC'));
+
+  const isUserPro = Boolean(
+    isActualAdmin ||
+    effectivePlan === 'PRO' ||
+    (effectivePlan as string) === 'YEARLY_PRO' ||
+    (effectivePlan as string) === 'BUSINESS' ||
+    profile.subscription_plan === 'PRO'
+  );
+
+  const currentUserData: CustomerProfileData = {
+    ...profile,
+    role: isActualAdmin ? 'Admin' : 'Customer',
+    userType: isActualAdmin ? 'Admin' : (isUserPro ? 'Premium' : 'Basic'),
+    is_pro: isUserPro,
+    subscription_plan: isUserPro ? 'PRO' : 'BASIC',
+    plan: effectivePlan as any,
+  };
+
   const handleNavigateView = (view: any) => {
+    if (view === 'admin' && !isActualAdmin) {
+      setCurrentView('home');
+      localStorage.setItem('cleancsv_current_view', 'home');
+      return;
+    }
     const targetView = (view === 'cleaner' || view === 'home') ? 'home' : view;
     setCurrentView(targetView);
     localStorage.setItem('cleancsv_current_view', targetView);
   };
-
-  useEffect(() => {
-    // अगर नॉर्मल यूज़र लॉगिन है, तो पुराना एडमिन फ्लैग तुरंत साफ कर दो
-    if (!isOwnerEmail) {
-      localStorage.removeItem('cleancsv_admin_logged_in');
-      setIsAdminLoggedIn(false);
-    }
-  }, [isOwnerEmail]);
 
   useEffect(() => {
     const fetchSupabaseData = async () => {
@@ -130,7 +183,9 @@ export default function App() {
             id: p.id,
             name: p.name || (p.email ? p.email.split('@')[0] : 'User'),
             email: p.email,
-            userType: p.role === 'Admin' ? 'Admin' : (p.plan === 'PRO' ? 'Premium' : 'Basic'),
+            userType: (p.email || '').trim().toLowerCase() === ADMIN_EMAIL
+              ? 'Admin'
+              : (p.plan && p.plan !== 'BASIC' ? 'Premium' : 'Basic'),
             signUpDate: new Date(p.created_at).toISOString().split('T')[0],
             status: 'Active',
           }));
@@ -147,28 +202,29 @@ export default function App() {
     fetchSupabaseData();
   }, []);
 
-  const isUserPro = Boolean(
-    isOwnerEmail ||
-    profile.plan === 'PRO' ||
-    (profile as any).subscription_plan === 'PRO'
-  );
+  // Admin द्वारा किसी भी ईमेल या खुद को अपग्रेड करने का हैंडलर
+  const handleAdminUpgradeEmail = (targetEmail: string, targetPlan: 'BASIC' | 'PRO' | 'YEARLY_PRO' | 'BUSINESS') => {
+    const cleanTarget = targetEmail.trim().toLowerCase();
+    try {
+      const raw = localStorage.getItem('cleancsv_admin_plan_overrides');
+      const map = raw ? JSON.parse(raw) : {};
+      map[cleanTarget] = targetPlan;
+      localStorage.setItem('cleancsv_admin_plan_overrides', JSON.stringify(map));
+    } catch {
+      // ignore
+    }
 
-  const currentUserData = {
-    ...profile,
-    userType: isUserPro ? 'Premium' : 'Basic',
-    is_pro: isUserPro,
-    subscription_plan: isUserPro ? 'PRO' : 'BASIC',
-    plan: isUserPro ? 'PRO' : 'BASIC',
+    // अगर अभी वही यूज़र लॉगिन है, तो तुरंत उसकी प्रोफ़ाइल भी अपडेट कर दें
+    if (cleanTarget === cleanEmail) {
+      setProfile((prev) => {
+        const updated = { ...prev, plan: targetPlan as any };
+        localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
+        return updated;
+      });
+    }
   };
 
   const handleIncrementUsage = () => {
-    if (isUserPro) return;
-
-    if (!isLoggedIn && freeFilesUsed >= 1) {
-      handleNavigateView('auth');
-      return;
-    }
-
     setFreeFilesUsed((prev) => {
       const newCount = prev + 1;
       localStorage.setItem('cleancsv_freeFilesUsed', newCount.toString());
@@ -182,9 +238,15 @@ export default function App() {
 
     setProfile((prev) => {
       const updatedCount = prev.totalCleanedFiles + 1;
+      const updatedMonthly = prev.monthlyStats.map((item) =>
+        item.month === 'Nov' || item.month === 'Oct'
+          ? { ...item, count: item.count + 1 }
+          : item
+      );
       const updated = {
         ...prev,
         totalCleanedFiles: updatedCount,
+        monthlyStats: updatedMonthly,
       };
       localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
       return updated;
@@ -207,13 +269,16 @@ export default function App() {
     };
     setSales((prev) => [newSale, ...prev]);
 
-    if (isProPlan) {
-      setProfile((prev) => {
-        const updated = { ...prev, plan: 'PRO' as const };
-        localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
-        return updated;
-      });
-    }
+    handleAdminUpgradeEmail(userEmail, planName);
+
+    setProfile((prev) => {
+      const updated = {
+        ...prev,
+        plan: planName as any,
+      };
+      localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleAddLiveSale = async (newSale: Sale) => {
@@ -221,6 +286,9 @@ export default function App() {
   };
 
   const handleUpdateProfile = (updated: Partial<CustomerProfileData>) => {
+    if (updated.plan && profile.email) {
+      handleAdminUpgradeEmail(profile.email, updated.plan as any);
+    }
     setProfile((prev) => {
       const full = { ...prev, ...updated };
       localStorage.setItem('cleancsv_user_profile', JSON.stringify(full));
@@ -228,19 +296,35 @@ export default function App() {
     });
   };
 
-  const handleLoginSuccess = (name: string, email: string) => {
+  const handleLoginSuccess = async (name: string, email: string) => {
     setIsLoggedIn(true);
     localStorage.setItem('cleancsv_user_session', 'true');
     
     const cleanLoginEmail = email.trim().toLowerCase();
-    const isOwner = cleanLoginEmail === 'support@cleancsv.online' || cleanLoginEmail === 'shersinghchanna0@gmail.com';
+    const isOwner = cleanLoginEmail === ADMIN_EMAIL;
+
+    // चेक करें कि क्या Admin ने इस ईमेल के लिए कोई प्लान पहले से अपग्रेड किया है
+    let assignedPlan: any = getSavedPlanOverride(cleanLoginEmail) || (isOwner ? 'PRO' : 'BASIC');
+
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('plan')
+        .ilike('email', cleanLoginEmail)
+        .maybeSingle();
+      if (data?.plan) {
+        assignedPlan = data.plan;
+      }
+    } catch {
+      // ignore
+    }
 
     const newProfile: CustomerProfileData = {
-      ...INITIAL_PROFILE,
-      name: name || (isOwner ? 'Sher Singh' : email.split('@')[0]),
-      email: email.trim(),
+      ...profile,
+      name: name || (isOwner ? 'Sher Singh' : email.split('@')[0] || 'User'),
+      email: email,
       role: isOwner ? 'Admin' : 'Customer',
-      plan: isOwner ? 'PRO' : 'BASIC',
+      plan: assignedPlan,
     };
 
     setProfile(newProfile);
@@ -250,7 +334,6 @@ export default function App() {
       setIsAdminLoggedIn(true);
       localStorage.setItem('cleancsv_admin_logged_in', 'true');
     } else {
-      // 🟢 अगर नॉर्मल यूज़र है तो एडमिन सेशन हटाओ
       setIsAdminLoggedIn(false);
       localStorage.removeItem('cleancsv_admin_logged_in');
     }
@@ -264,15 +347,16 @@ export default function App() {
     localStorage.setItem('cleancsv_user_session', 'true');
     localStorage.setItem('cleancsv_admin_logged_in', 'true');
     const adminProf: CustomerProfileData = {
-      ...INITIAL_PROFILE,
+      ...profile,
       name: 'Sher Singh',
-      email: 'shersinghchanna0@gmail.com',
+      email: ADMIN_EMAIL,
       role: 'Admin',
-      plan: 'PRO',
+      plan: getSavedPlanOverride(ADMIN_EMAIL) || 'PRO',
     };
     setProfile(adminProf);
     localStorage.setItem('cleancsv_user_profile', JSON.stringify(adminProf));
-    handleNavigateView('admin');
+    setCurrentView('admin');
+    localStorage.setItem('cleancsv_current_view', 'admin');
   };
 
   const handleLogout = () => {
@@ -301,7 +385,7 @@ export default function App() {
         onOpenSupportModal={() => setIsSupportModalOpen(true)}
         isLoggedIn={isLoggedIn}
         onToggleLogin={handleLogout}
-        isAdminLoggedIn={isOwnerEmail && isAdminLoggedIn}
+        isAdminLoggedIn={isActualAdmin && isAdminLoggedIn}
         onLogoutAdmin={() => {
           setIsAdminLoggedIn(false);
           localStorage.removeItem('cleancsv_admin_logged_in');
@@ -319,18 +403,16 @@ export default function App() {
           <CustomerProfile
             t={t}
             profile={currentUserData}
-            userEmail={profile.email}
-            userName={profile.name}
             onUpdateProfile={handleUpdateProfile}
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
             onNavigate={(view) => handleNavigateView(view)}
             onNavigateToCleaner={() => handleNavigateView('home')}
           />
-        ) : currentView === 'admin' ? (
+        ) : currentView === 'admin' && isActualAdmin ? (
           <AdminDashboard
             t={t}
-            isAdminLoggedIn={isOwnerEmail && isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn}
             onLoginAdmin={() => {
               setIsAdminLoggedIn(true);
               localStorage.setItem('cleancsv_admin_logged_in', 'true');
@@ -347,6 +429,7 @@ export default function App() {
             onUpdateUsers={setUsers}
             cleanedFilesHistory={cleanedFilesHistory}
             totalCleanedFiles={Math.max(globalCleanedCount, profile.totalCleanedFiles)}
+            onAdminUpgradeEmail={handleAdminUpgradeEmail}
           />
         ) : currentView === 'auth' ? (
           <AuthSplitScreen
@@ -357,7 +440,7 @@ export default function App() {
         ) : (
           <HomeCleaner
             t={t}
-            freeFilesUsed={freeFilesUsed}
+            freeFilesUsed={0}
             onIncrementUsage={handleIncrementUsage}
             onFileCleaned={handleFileCleaned}
             onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')}
