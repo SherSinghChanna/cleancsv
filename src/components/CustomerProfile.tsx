@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CustomerProfileData, TranslationStrings } from '../types';
 import { Crown, LogOut, CheckCircle2, ArrowLeft, Building2, Sparkles } from 'lucide-react';
 import { PayPalCheckoutModal } from './PayPalCheckoutModal';
+import { PLANS_DATA } from '../data/plansData';
 
 interface CustomerProfileProps {
   t: TranslationStrings;
@@ -26,9 +27,11 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number }>({ name: 'PRO', price: 1.99 });
 
-  const activeEmail = userEmail || profile.email || 'sher13101993@gmail.com';
-  const activeName = userName || profile.name || 'Sher Singh';
-  const isProUser = profile.plan === 'PRO' || profile.subscription_plan === 'PRO' || profile.plan === 'BUSINESS' || profile.plan === 'YEARLY_PRO';
+  const activeEmail = userEmail || profile.email || 'user@cleancsv.online';
+  const activeName = userName || profile.name || activeEmail.split('@')[0] || 'Valued User';
+  
+  const currentPlan = profile.plan || profile.subscription_plan || 'BASIC';
+  const isProUser = currentPlan === 'PRO' || currentPlan === 'BUSINESS' || currentPlan === 'YEARLY_PRO';
 
   const handleOpenCheckout = (planName: string, price: number) => {
     setSelectedPlan({ name: planName, price: price });
@@ -77,7 +80,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
             </div>
             <p className="text-xs sm:text-sm text-slate-500 font-mono mt-0.5">{activeEmail}</p>
             <div className="inline-block mt-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
-              {isProUser ? `${profile.plan} · Unlimited Access` : 'BASIC · Free Unlimited Access'}
+              {isProUser ? `${currentPlan} · Unlimited Access` : 'BASIC · Free Tier Active'}
             </div>
           </div>
         </div>
@@ -90,110 +93,100 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </div>
       </div>
 
-      {/* 4 Professional Pricing Plans */}
+      {/* 4 Professional Pricing Plans (Dynamically Rendered) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-        
-        {/* 1. Free Basic */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-200 flex flex-col justify-between">
-          <div>
-            <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Starter</div>
-            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Free Basic</h3>
-            <p className="text-xs text-slate-500 mb-4">Essential in-browser CSV cleaning.</p>
-            <div className="text-3xl font-extrabold text-slate-900 mb-6">$0 <span className="text-xs text-slate-400 font-normal">/ forever</span></div>
-            
-            <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Unlimited CSV Cleaning</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Deduplicate & Trim Spaces</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Standard CSV & JSON Export</li>
-            </ul>
-          </div>
-          <div className="w-full py-2.5 rounded-xl font-bold text-xs text-center text-slate-600 bg-slate-100">
-            Active Plan
-          </div>
-        </div>
+        {PLANS_DATA.map((plan) => {
+          const isCurrentPlan = currentPlan === plan.id;
 
-        {/* 2. Pro Monthly */}
-        <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-indigo-500 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-4 right-4 bg-indigo-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Popular
-          </div>
-          <div>
-            <div className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider mb-2">Pro Monthly</div>
-            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Unlimited Pro</h3>
-            <p className="text-xs text-slate-500 mb-4">Advanced multi-format exports & speed.</p>
-            <div className="text-3xl font-extrabold text-slate-900 mb-6">$1.99 <span className="text-xs text-slate-400 font-normal">/ month</span></div>
-            
-            <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Unlimited Files (50MB+)</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Direct Excel (.xlsx) Export</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Priority 24/7 Support</li>
-            </ul>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleOpenCheckout('PRO', 1.99)}
-            className="w-full py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md text-xs cursor-pointer"
-          >
-            Upgrade Monthly ($1.99)
-          </button>
-        </div>
+          return (
+            <div
+              key={plan.id}
+              className={`rounded-3xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden ${
+                plan.popular
+                  ? 'bg-white border-2 border-indigo-500'
+                  : plan.yearly
+                  ? 'bg-white border-2 border-amber-500'
+                  : plan.b2b
+                  ? 'bg-gradient-to-br from-slate-900 to-indigo-950 text-white border border-indigo-500/30'
+                  : 'bg-white border border-slate-200'
+              }`}
+            >
+              {plan.badge && (
+                <div
+                  className={`absolute top-4 right-4 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    plan.popular
+                      ? 'bg-indigo-600 text-white'
+                      : plan.yearly
+                      ? 'bg-amber-500 text-slate-950'
+                      : plan.b2b
+                      ? 'bg-emerald-400 text-slate-950'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {plan.badge}
+                </div>
+              )}
 
-        {/* 3. Yearly Pro */}
-        <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-amber-500 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-4 right-4 bg-amber-500 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Save 37%
-          </div>
-          <div>
-            <div className="text-xs font-extrabold text-amber-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> Annual Value
+              <div>
+                <div
+                  className={`text-xs font-extrabold uppercase tracking-wider mb-2 ${
+                    plan.b2b
+                      ? 'text-emerald-400'
+                      : plan.yearly
+                      ? 'text-amber-600'
+                      : plan.popular
+                      ? 'text-indigo-600'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {plan.tagline}
+                </div>
+                <h3 className={`text-lg font-extrabold mb-1 ${plan.b2b ? 'text-white' : 'text-slate-900'}`}>
+                  {plan.name}
+                </h3>
+                <p className={`text-xs mb-4 ${plan.b2b ? 'text-slate-300' : 'text-slate-500'}`}>{plan.tagline}</p>
+
+                <div className={`text-3xl font-extrabold mb-6 ${plan.b2b ? 'text-white' : 'text-slate-900'}`}>
+                  {plan.price} <span className="text-xs font-normal text-slate-400">{plan.period}</span>
+                </div>
+
+                <ul className={`space-y-2.5 text-xs mb-6 ${plan.b2b ? 'text-slate-200' : 'text-slate-700'}`}>
+                  {plan.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {plan.id === 'BASIC' ? (
+                <div className="w-full py-2.5 rounded-xl font-bold text-xs text-center text-slate-600 bg-slate-100">
+                  {isCurrentPlan ? 'Active Plan' : 'Included'}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleOpenCheckout(
+                      plan.id,
+                      plan.id === 'PRO' ? 1.99 : plan.id === 'YEARLY_PRO' ? 15 : 19
+                    )
+                  }
+                  className={`w-full py-3 rounded-xl font-bold text-xs transition-all shadow-md cursor-pointer ${
+                    plan.b2b
+                      ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950'
+                      : plan.yearly
+                      ? 'bg-amber-400 hover:bg-amber-500 text-slate-950'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {isCurrentPlan ? 'Current Plan' : plan.buttonText}
+                </button>
+              )}
             </div>
-            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Yearly Pro</h3>
-            <p className="text-xs text-slate-500 mb-4">Full year access at discounted pricing.</p>
-            <div className="text-3xl font-extrabold text-slate-900 mb-6">$15 <span className="text-xs text-slate-400 font-normal">/ year</span></div>
-            
-            <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> All Unlimited Pro Features</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> 12 Months Full Access</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Excel & JSON Multi-Export</li>
-            </ul>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleOpenCheckout('YEARLY_PRO', 15)}
-            className="w-full py-3 rounded-xl font-bold text-slate-950 bg-amber-400 hover:bg-amber-500 transition-all shadow-md text-xs cursor-pointer"
-          >
-            Get Yearly Pro ($15)
-          </button>
-        </div>
-
-        {/* 4. Business Team Plan */}
-        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-indigo-500/30 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-4 right-4 bg-emerald-400 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-            For Teams
-          </div>
-          <div>
-            <div className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5" /> Enterprise B2B
-            </div>
-            <h3 className="text-lg font-extrabold text-white mb-1">Business Team</h3>
-            <p className="text-xs text-slate-300 mb-4">Built for agencies and growing companies.</p>
-            <div className="text-3xl font-extrabold text-white mb-6">$19 <span className="text-xs text-slate-400 font-normal">/ month</span></div>
-            
-            <ul className="space-y-2.5 text-xs text-slate-200 mb-6">
-              <li className="flex items-center gap-2"><span className="text-emerald-400 font-bold">✓</span> Up to 10 Team Seats</li>
-              <li className="flex items-center gap-2"><span className="text-emerald-400 font-bold">✓</span> Bulk File Processing (100MB+)</li>
-              <li className="flex items-center gap-2"><span className="text-emerald-400 font-bold">✓</span> Dedicated VIP Support</li>
-            </ul>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleOpenCheckout('BUSINESS', 19)}
-            className="w-full py-3 rounded-xl font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all shadow-md text-xs cursor-pointer"
-          >
-            Get Business Team ($19)
-          </button>
-        </div>
-
+          );
+        })}
       </div>
 
       {/* Checkout Modal */}
