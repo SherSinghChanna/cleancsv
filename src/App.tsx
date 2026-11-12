@@ -39,15 +39,30 @@ const INITIAL_PROFILE: CustomerProfileData = {
 };
 
 export default function App() {
+  const [profile, setProfile] = useState<CustomerProfileData>(() => {
+    const savedProfile = localStorage.getItem('cleancsv_user_profile');
+    if (savedProfile) {
+      try {
+        return JSON.parse(savedProfile);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return INITIAL_PROFILE;
+  });
+
+  // 🟢 पक्का चेक: क्या वाकई में एडमिन ईमेल है?
+  const cleanCurrentEmail = (profile.email || '').trim().toLowerCase();
+  const isOwnerEmail = cleanCurrentEmail === 'shersinghchanna0@gmail.com' || cleanCurrentEmail === 'support@cleancsv.online';
+
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('cleancsv_admin_logged_in') === 'true';
+    return isOwnerEmail && localStorage.getItem('cleancsv_admin_logged_in') === 'true';
   });
 
   const [currentView, setCurrentView] = useState<NavView>(() => {
-    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
     const savedView = localStorage.getItem('cleancsv_current_view') as NavView;
-    if (savedAdmin && savedView === 'admin') return 'admin';
-    return savedView || 'home';
+    if (isOwnerEmail && savedView === 'admin') return 'admin';
+    return savedView === 'admin' ? 'home' : (savedView || 'home');
   });
 
   const [currentLanguage, setCurrentLanguage] = useState<Language>('en');
@@ -60,22 +75,9 @@ export default function App() {
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
     const savedUser = localStorage.getItem('cleancsv_user_session');
-    return savedAdmin || Boolean(savedUser);
+    return Boolean(savedUser);
   }); 
-
-  const [profile, setProfile] = useState<CustomerProfileData>(() => {
-    const savedProfile = localStorage.getItem('cleancsv_user_profile');
-    if (savedProfile) {
-      try {
-        return JSON.parse(savedProfile);
-      } catch (e) {
-        // ignore
-      }
-    }
-    return INITIAL_PROFILE;
-  });
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -89,6 +91,14 @@ export default function App() {
     setCurrentView(targetView);
     localStorage.setItem('cleancsv_current_view', targetView);
   };
+
+  useEffect(() => {
+    // अगर नॉर्मल यूज़र लॉगिन है, तो पुराना एडमिन फ्लैग तुरंत साफ कर दो
+    if (!isOwnerEmail) {
+      localStorage.removeItem('cleancsv_admin_logged_in');
+      setIsAdminLoggedIn(false);
+    }
+  }, [isOwnerEmail]);
 
   useEffect(() => {
     const fetchSupabaseData = async () => {
@@ -137,19 +147,10 @@ export default function App() {
     fetchSupabaseData();
   }, []);
 
-  // 🟢 असली एडमिन चेक (सिर्फ तभी जब ईमेल सच में एडमिन का हो)
-  const cleanEmail = (profile.email || '').trim().toLowerCase();
-  const isActualAdmin = Boolean(
-    isAdminLoggedIn || 
-    cleanEmail === 'shersinghchanna0@gmail.com' ||
-    cleanEmail === 'support@cleancsv.online'
-  );
-
   const isUserPro = Boolean(
-    isActualAdmin ||
+    isOwnerEmail ||
     profile.plan === 'PRO' ||
-    profile.role === 'Admin' ||
-    profile.subscription_plan === 'PRO'
+    (profile as any).subscription_plan === 'PRO'
   );
 
   const currentUserData = {
@@ -157,13 +158,11 @@ export default function App() {
     userType: isUserPro ? 'Premium' : 'Basic',
     is_pro: isUserPro,
     subscription_plan: isUserPro ? 'PRO' : 'BASIC',
-    plan: isUserPro ? 'PRO' : profile.plan,
+    plan: isUserPro ? 'PRO' : 'BASIC',
   };
 
   const handleIncrementUsage = () => {
-    if (isUserPro) {
-      return;
-    }
+    if (isUserPro) return;
 
     if (!isLoggedIn && freeFilesUsed >= 1) {
       handleNavigateView('auth');
@@ -183,15 +182,9 @@ export default function App() {
 
     setProfile((prev) => {
       const updatedCount = prev.totalCleanedFiles + 1;
-      const updatedMonthly = prev.monthlyStats.map((item) =>
-        item.month === 'Nov' || item.month === 'Oct'
-          ? { ...item, count: item.count + 1 }
-          : item
-      );
       const updated = {
         ...prev,
         totalCleanedFiles: updatedCount,
-        monthlyStats: updatedMonthly,
       };
       localStorage.setItem('cleancsv_user_profile', JSON.stringify(updated));
       return updated;
@@ -243,9 +236,9 @@ export default function App() {
     const isOwner = cleanLoginEmail === 'support@cleancsv.online' || cleanLoginEmail === 'shersinghchanna0@gmail.com';
 
     const newProfile: CustomerProfileData = {
-      ...profile,
-      name: name || (isOwner ? 'Sher Singh' : 'User'),
-      email: email,
+      ...INITIAL_PROFILE,
+      name: name || (isOwner ? 'Sher Singh' : email.split('@')[0]),
+      email: email.trim(),
       role: isOwner ? 'Admin' : 'Customer',
       plan: isOwner ? 'PRO' : 'BASIC',
     };
@@ -256,6 +249,10 @@ export default function App() {
     if (isOwner) {
       setIsAdminLoggedIn(true);
       localStorage.setItem('cleancsv_admin_logged_in', 'true');
+    } else {
+      // 🟢 अगर नॉर्मल यूज़र है तो एडमिन सेशन हटाओ
+      setIsAdminLoggedIn(false);
+      localStorage.removeItem('cleancsv_admin_logged_in');
     }
     
     handleNavigateView('home'); 
@@ -264,9 +261,10 @@ export default function App() {
   const handleAdminDirectLogin = () => {
     setIsLoggedIn(true);
     setIsAdminLoggedIn(true);
+    localStorage.setItem('cleancsv_user_session', 'true');
     localStorage.setItem('cleancsv_admin_logged_in', 'true');
     const adminProf: CustomerProfileData = {
-      ...profile,
+      ...INITIAL_PROFILE,
       name: 'Sher Singh',
       email: 'shersinghchanna0@gmail.com',
       role: 'Admin',
@@ -303,14 +301,14 @@ export default function App() {
         onOpenSupportModal={() => setIsSupportModalOpen(true)}
         isLoggedIn={isLoggedIn}
         onToggleLogin={handleLogout}
-        isAdminLoggedIn={isAdminLoggedIn}
+        isAdminLoggedIn={isOwnerEmail && isAdminLoggedIn}
         onLogoutAdmin={() => {
           setIsAdminLoggedIn(false);
           localStorage.removeItem('cleancsv_admin_logged_in');
           handleNavigateView('home');
         }}
         userName={profile.name}
-        userEmail={profile.email} // 🟢 यह सुनिश्चित करेगा कि Navbar में सही लॉगिन ईमेल ही दिखे
+        userEmail={profile.email}
         userAvatar={profile.avatar}
         isPro={isUserPro}
         t={t}
@@ -321,6 +319,8 @@ export default function App() {
           <CustomerProfile
             t={t}
             profile={currentUserData}
+            userEmail={profile.email}
+            userName={profile.name}
             onUpdateProfile={handleUpdateProfile}
             onPlanPurchased={handlePlanPurchased}
             onLogout={handleLogout}
@@ -330,7 +330,7 @@ export default function App() {
         ) : currentView === 'admin' ? (
           <AdminDashboard
             t={t}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isOwnerEmail && isAdminLoggedIn}
             onLoginAdmin={() => {
               setIsAdminLoggedIn(true);
               localStorage.setItem('cleancsv_admin_logged_in', 'true');

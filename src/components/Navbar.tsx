@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdminLoggedIn,
   onLogoutAdmin,
   userName = 'User',
-  userEmail = 'sher13101993@gmail.com',
+  userEmail = '',
   userAvatar,
   isPro = false,
   t,
@@ -71,11 +71,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  // 🟢 असली ईमेल और एडमिन चेक
+  // 🟢 पक्का चेक: सिर्फ असली ओनर ईमेल होने पर ही एडमिन दिखेगा, नाम ('sher') से नहीं!
   const cleanEmail = (userEmail || '').trim().toLowerCase();
-  const isOwner = cleanEmail === 'shersinghchanna0@gmail.com' || cleanEmail === 'support@cleancsv.online';
-  const isAdmin = Boolean(isAdminLoggedIn || isOwner);
-  const activePro = Boolean(isPro || isOwner);
+  const isAdmin = cleanEmail === 'shersinghchanna0@gmail.com' || cleanEmail === 'support@cleancsv.online';
+  const activePro = Boolean(isPro || isAdmin);
 
   const handleShare = async () => {
     try {
@@ -209,9 +208,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <span className="truncate">{userName}</span>
                             {activePro && <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
                           </div>
-                          {/* 🟢 यहाँ अब बिल्कुल सही लॉगिन ईमेल दिखेगा */}
+                          {/* 🟢 यहाँ अब सिर्फ असली लॉगिन ईमेल दिखेगा */}
                           <div className="text-[11px] text-slate-500 font-mono truncate">
-                            {userEmail || 'sher13101993@gmail.com'}
+                            {userEmail}
                           </div>
                           <div className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold rounded-full uppercase tracking-wider">
                             {activePro ? 'PRO · Active' : 'BASIC · Active'}
