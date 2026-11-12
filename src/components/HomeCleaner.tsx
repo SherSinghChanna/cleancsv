@@ -20,7 +20,8 @@ import {
   Search,
   Zap,
   Check,
-  Camera
+  Camera,
+  Plus
 } from 'lucide-react';
 
 interface HomeCleanerProps {
@@ -116,7 +117,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
   const handleFileSelected = (file: File) => {
     if (!file.name.match(/\.(csv|tsv|txt)$/i)) {
-      alert("कृपया सिर्फ .csv, .tsv या .txt फ़ाइल अपलोड करें।");
+      alert("Please upload a valid .csv, .tsv, or .txt file.");
       return;
     }
     setSelectedFileName(file.name);
@@ -131,16 +132,15 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     reader.readAsText(file);
   };
 
-  // खुद का Image Pre-Processor: परछाई और कॉपी की लाइनों को हटाकर स्याही को साफ़ करना
-  const enhanceImageForLocalOCR = (file: File): Promise<string> => {
+  // 100% In-Browser Soft Grayscale + High-DPI Upscale (बिना अक्षर काटे साफ़ रीडिंग के लिए)
+  const prepareCleanGrayscaleImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          // अक्षरों को साफ़ पढ़ने के लिए 2200px तक स्केल करना
-          const TARGET_WIDTH = Math.min(2200, Math.max(1400, img.width * 1.5));
+          const TARGET_WIDTH = Math.min(2400, Math.max(1500, img.width * 1.6));
           const scale = TARGET_WIDTH / img.width;
           const width = Math.round(img.width * scale);
           const height = Math.round(img.height * scale);
@@ -149,33 +149,27 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
-            reject(new Error('Canvas error'));
+            reject(new Error('Canvas initialization failed'));
             return;
           }
 
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
 
+          // Gentle Grayscale & Contrast Boost (अक्षरों की किनारी सुरक्षित रखते हुए)
           const imgData = ctx.getImageData(0, 0, width, height);
           const d = imgData.data;
-
-          // औसत चमक (brightness) निकालकर परछाई और हल्की लाइनों को फ़िल्टर करना
-          let totalLum = 0;
+          const contrastFactor = 1.25;
           for (let i = 0; i < d.length; i += 4) {
-            totalLum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            const adjusted = Math.min(255, Math.max(0, contrastFactor * (gray - 128) + 128));
+            d[i] = adjusted;
+            d[i + 1] = adjusted;
+            d[i + 2] = adjusted;
           }
-          const avgLum = totalLum / (d.length / 4);
-          const threshold = avgLum * 0.82;
-
-          for (let i = 0; i < d.length; i += 4) {
-            const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-            const val = lum < threshold ? 0 : 255;
-            d[i] = val;
-            d[i + 1] = val;
-            d[i + 2] = val;
-          }
-
           ctx.putImageData(imgData, 0, 0);
           resolve(canvas.toDataURL('image/png'));
         };
@@ -187,7 +181,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     });
   };
 
-  // 100% खुद का In-Browser OCR + Smart Key-Value / Table Parser (Zero External API)
+  // 100% In-Browser Printed Table / Receipt / Invoice OCR Engine (Zero Server Upload)
   const handleImageSelected = async (imageFile: File) => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
@@ -196,13 +190,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }
 
     setIsProcessing(true);
-    setProcessingLabel('Enhancing photo & running in-browser OCR...');
+    setProcessingLabel('Scanning document locally in browser...');
     setProgressPercent(15);
     setIsDeletedMessage(null);
     setCleanedFile(null);
 
     try {
-      const cleanDataUrl = await enhanceImageForLocalOCR(imageFile);
+      const processedImageUrl = await prepareCleanGrayscaleImage(imageFile);
       setProgressPercent(30);
 
       const worker = await createWorker('eng', 1, {
@@ -213,59 +207,65 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
         },
       });
 
-      const { data: { text } } = await worker.recognize(cleanDataUrl);
+      const { data: { text } } = await worker.recognize(processedImageUrl);
       await worker.terminate();
 
       if (!text || !text.trim()) {
-        throw new Error('फ़ोटो से कोई अक्षर नहीं पढ़े जा सके। कृपया साफ़ रोशनी में खींची फ़ोटो चुनें।');
+        throw new Error('No readable text detected. Please upload a clear photo of a printed table, receipt, or document.');
       }
 
       const rawLines = text
         .split(/\r?\n/)
-        .map((line) => line.replace(/[|_~`]+/g, ' ').trim())
-        .filter((line) => line.length > 1);
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 
-      // जाँचें कि क्या यह Key-Value (जैसे Name - Navneet Kaur) फ़ॉर्मेट है या मल्टी-कॉलम टेबल
-      let kvCount = 0;
+      // जाँचें कि डेटा Key-Value (जैसे Invoice No: 123) है या Multi-Column Table
+      let kvMatches = 0;
       for (const l of rawLines) {
-        if (/^([A-Za-z0-9\s./()]{2,30})\s*[-:=–—]+\s*(.+)$/.test(l)) {
-          kvCount++;
+        if (/^([A-Za-z0-9\s./()#]{2,32})\s*[:=\-–—]+\s*(.+)$/.test(l)) {
+          kvMatches++;
         }
       }
 
       let generatedCSV = '';
 
-      if (kvCount >= 2) {
-        // 2-Column Smart Key-Value CSV (Field, Value)
+      if (kvMatches >= 2 && rawLines.length <= 25) {
         const rows = ['Field,Value'];
         for (const line of rawLines) {
-          const match = line.match(/^([A-Za-z0-9\s./()]{2,30}?)\s*[-:=–—]+\s*(.+)$/);
+          const match = line.match(/^([A-Za-z0-9\s./()#]{2,32}?)\s*[:=\-–—]+\s*(.+)$/);
           if (match) {
-            const field = match[1].trim().replace(/"/g, '""');
-            const value = match[2].trim().replace(/"/g, '""');
-            rows.push(`"${field}","${value}"`);
+            const k = match[1].trim().replace(/"/g, '""');
+            const v = match[2].trim().replace(/"/g, '""');
+            rows.push(`"${k}","${v}"`);
           } else {
-            const safeLine = line.replace(/"/g, '""');
-            rows.push(`"Note","${safeLine}"`);
+            const safe = line.replace(/"/g, '""');
+            rows.push(`"Line Item","${safe}"`);
           }
         }
         generatedCSV = rows.join('\n');
       } else {
-        // Multi-Column Table CSV
-        const csvLines = rawLines.map((line) => {
+        // Multi-Column Table Parser
+        const parsedRows = rawLines.map((line) => {
           const cols = line
-            .split(/\s{2,}|\t/)
-            .map((col) => {
-              const cleanCol = col.trim();
-              return cleanCol.includes(',') ? `"${cleanCol.replace(/"/g, '""')}"` : cleanCol;
-            })
+            .split(/\s{2,}|\t|\|/)
+            .map((col) => col.trim())
             .filter((c) => c !== '');
-          return cols.join(',');
+          return cols.length > 1 ? cols : line.split(/\s+/).filter((c) => c !== '');
         });
-        generatedCSV = csvLines.join('\n');
+
+        const maxCols = Math.max(...parsedRows.map((r) => r.length), 1);
+        const normalizedLines = parsedRows.map((cols) => {
+          const padded = [...cols];
+          while (padded.length < maxCols) padded.push('');
+          return padded
+            .map((c) => (c.includes(',') ? `"${c.replace(/"/g, '""')}"` : c))
+            .join(',');
+        });
+
+        generatedCSV = normalizedLines.join('\n');
       }
 
-      const baseName = imageFile.name.replace(/\.[^/.]+$/, '') || 'scanned_photo';
+      const baseName = imageFile.name.replace(/\.[^/.]+$/, '') || 'scanned_document';
       const csvFileName = `${baseName}_scanned.csv`;
 
       setSelectedFileName(csvFileName);
@@ -275,10 +275,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
       executeClean(generatedCSV, csvFileName, true);
     } catch (err: any) {
-      console.error('Local OCR Error:', err);
+      console.error('In-Browser OCR Error:', err);
       setIsProcessing(false);
       setProgressPercent(0);
-      alert(err?.message || 'फ़ोटो पढ़ने में समस्या आई। कृपया साफ़ फ़ोटो चुनें।');
+      alert(err?.message || 'Unable to read image. Please upload a clearer printed table or receipt.');
     } finally {
       if (imageInputRef.current) imageInputRef.current.value = '';
     }
@@ -290,6 +290,29 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     const updatedRows = cleanedFile.rows.map((r, rIdx) =>
       rIdx === rowIndex ? r.map((c, cIdx) => (cIdx === colIndex ? newValue : c)) : r
     );
+    setCleanedFile({
+      ...cleanedFile,
+      rows: updatedRows,
+      cleanedSize: new Blob([stringifyCSV(cleanedFile.headers, updatedRows)]).size,
+    });
+  };
+
+  // Preview Modal में नई खाली Row जोड़ने का फ़ंक्शन
+  const handleAddRow = () => {
+    if (!cleanedFile) return;
+    const emptyRow = new Array(cleanedFile.headers.length).fill('');
+    const updatedRows = [...cleanedFile.rows, emptyRow];
+    setCleanedFile({
+      ...cleanedFile,
+      rows: updatedRows,
+      cleanedSize: new Blob([stringifyCSV(cleanedFile.headers, updatedRows)]).size,
+    });
+  };
+
+  // Preview Modal में किसी Row को डिलीट करने का फ़ंक्शन
+  const handleDeleteRow = (rowIndex: number) => {
+    if (!cleanedFile) return;
+    const updatedRows = cleanedFile.rows.filter((_, idx) => idx !== rowIndex);
     setCleanedFile({
       ...cleanedFile,
       rows: updatedRows,
@@ -454,7 +477,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             Clean & Format CSV Files Instantly
           </h1>
           <p className="text-xs sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Remove duplicates, trim spaces, fix date formats, or scan handwritten tables into clean CSV directly in your browser.
+            Remove duplicates, trim spaces, fix date formats, or extract printed tables and receipts into clean CSV 100% locally in your browser.
           </p>
         </div>
 
@@ -479,10 +502,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                     <UploadCloud className="w-8 h-8 sm:w-9 sm:h-9 stroke-[2]" />
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight mb-1">
-                    Upload CSV or Scan Photo
+                    Upload CSV or Scan Printed Table
                   </h3>
                   <p className="text-xs text-slate-500 mb-5 max-w-xs sm:max-w-md">
-                    Drop your CSV file here, browse from device, or snap a photo of handwritten/printed notes
+                    Drop your CSV file here, browse from device, or scan a clear photo of a printed receipt, invoice, or table
                   </p>
 
                   {selectedFileName && (
@@ -510,7 +533,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                       className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg cursor-pointer shadow-xs transition-all text-center flex items-center justify-center gap-1.5"
                     >
                       <Camera className="w-4 h-4" />
-                      <span>Scan Photo / Handwritten</span>
+                      <span>Scan Printed Table / Receipt</span>
                     </label>
 
                     <button
@@ -739,6 +762,14 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input type="text" placeholder="Search preview rows..." value={previewSearch} onChange={(e) => setPreviewSearch(e.target.value)} className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-emerald-500 w-full sm:w-64" />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleAddRow}
+                  className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Row</span>
+                </button>
                 <button onClick={() => setShowPreviewModal(false)} className="hidden sm:block p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
                   <X className="w-5 h-5" />
                 </button>
@@ -754,6 +785,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                         {col}
                       </th>
                     ))}
+                    <th className="py-2.5 px-2 font-semibold text-slate-400 w-10 text-center">Del</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -772,6 +804,16 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                           />
                         </td>
                       ))}
+                      <td className="py-1 px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(originalIndex)}
+                          title="Delete row"
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
