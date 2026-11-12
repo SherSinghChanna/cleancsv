@@ -16,7 +16,6 @@ interface CustomerProfileProps {
 }
 
 export const CustomerProfile: React.FC<CustomerProfileProps> = ({
-  t,
   profile,
   userEmail,
   userName,
@@ -29,7 +28,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
   const activeEmail = userEmail || profile.email || 'sher13101993@gmail.com';
   const activeName = userName || profile.name || 'Sher Singh';
-  const isProUser = profile.plan === 'PRO' || profile.subscription_plan === 'PRO' || profile.plan === 'BUSINESS';
+  const isProUser = profile.plan === 'PRO' || profile.subscription_plan === 'PRO' || profile.plan === 'BUSINESS' || profile.plan === 'YEARLY_PRO';
 
   const handleOpenCheckout = (planName: string, price: number) => {
     setSelectedPlan({ name: planName, price: price });
@@ -61,7 +60,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           className="inline-flex items-center gap-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl border border-rose-200 transition-all cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
-          <span>{t.logout}</span>
+          <span>Logout</span>
         </button>
       </div>
 
@@ -78,7 +77,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
             </div>
             <p className="text-xs sm:text-sm text-slate-500 font-mono mt-0.5">{activeEmail}</p>
             <div className="inline-block mt-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
-              {isProUser ? `${profile.plan} · Unlimited Access` : 'BASIC · Free Tier Active'}
+              {isProUser ? `${profile.plan} · Unlimited Access` : 'BASIC · Free Unlimited Access'}
             </div>
           </div>
         </div>
@@ -91,29 +90,29 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </div>
       </div>
 
-      {/* Subscription & Pricing Plans Section (4 Tiers) */}
+      {/* 4 Professional Pricing Plans */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
         
-        {/* 1. Free Basic Plan */}
+        {/* 1. Free Basic */}
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-slate-200 flex flex-col justify-between">
           <div>
             <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Starter</div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-1">Free Basic</h3>
-            <p className="text-xs text-slate-500 mb-4">Daily essential CSV cleaning in your browser.</p>
+            <p className="text-xs text-slate-500 mb-4">Essential in-browser CSV cleaning.</p>
             <div className="text-3xl font-extrabold text-slate-900 mb-6">$0 <span className="text-xs text-slate-400 font-normal">/ forever</span></div>
             
             <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Up to 3 Files / Day (5MB)</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Unlimited CSV Cleaning</li>
               <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Deduplicate & Trim Spaces</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Standard CSV Download</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Standard CSV & JSON Export</li>
             </ul>
           </div>
           <div className="w-full py-2.5 rounded-xl font-bold text-xs text-center text-slate-600 bg-slate-100">
-            {isProUser ? 'Included' : 'Current Plan'}
+            Active Plan
           </div>
         </div>
 
-        {/* 2. Unlimited Pro Monthly Plan */}
+        {/* 2. Pro Monthly */}
         <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-indigo-500 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute top-4 right-4 bg-indigo-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
             Popular
@@ -121,12 +120,12 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           <div>
             <div className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider mb-2">Pro Monthly</div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-1">Unlimited Pro</h3>
-            <p className="text-xs text-slate-500 mb-4">Unlimited files & multi-format exports.</p>
+            <p className="text-xs text-slate-500 mb-4">Advanced multi-format exports & speed.</p>
             <div className="text-3xl font-extrabold text-slate-900 mb-6">$1.99 <span className="text-xs text-slate-400 font-normal">/ month</span></div>
             
             <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
               <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Unlimited Files (50MB+)</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Excel (.xlsx) & JSON Export</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Direct Excel (.xlsx) Export</li>
               <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Priority 24/7 Support</li>
             </ul>
           </div>
@@ -139,7 +138,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           </button>
         </div>
 
-        {/* 3. Yearly Pro Plan */}
+        {/* 3. Yearly Pro */}
         <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-amber-500 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute top-4 right-4 bg-amber-500 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
             Save 37%
@@ -149,11 +148,11 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
               <Sparkles className="w-3.5 h-3.5" /> Annual Value
             </div>
             <h3 className="text-lg font-extrabold text-slate-900 mb-1">Yearly Pro</h3>
-            <p className="text-xs text-slate-500 mb-4">Full year unlimited access at a discounted price.</p>
+            <p className="text-xs text-slate-500 mb-4">Full year access at discounted pricing.</p>
             <div className="text-3xl font-extrabold text-slate-900 mb-6">$15 <span className="text-xs text-slate-400 font-normal">/ year</span></div>
             
             <ul className="space-y-2.5 text-xs text-slate-700 mb-6">
-              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Everything in Unlimited Pro</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> All Unlimited Pro Features</li>
               <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> 12 Months Full Access</li>
               <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Excel & JSON Multi-Export</li>
             </ul>
@@ -167,7 +166,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
           </button>
         </div>
 
-        {/* 4. B2B Business Team Plan */}
+        {/* 4. Business Team Plan */}
         <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-indigo-500/30 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute top-4 right-4 bg-emerald-400 text-slate-950 font-extrabold text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider">
             For Teams
@@ -177,7 +176,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
               <Building2 className="w-3.5 h-3.5" /> Enterprise B2B
             </div>
             <h3 className="text-lg font-extrabold text-white mb-1">Business Team</h3>
-            <p className="text-xs text-slate-300 mb-4">Built for companies, agencies & data teams.</p>
+            <p className="text-xs text-slate-300 mb-4">Built for agencies and growing companies.</p>
             <div className="text-3xl font-extrabold text-white mb-6">$19 <span className="text-xs text-slate-400 font-normal">/ month</span></div>
             
             <ul className="space-y-2.5 text-xs text-slate-200 mb-6">
