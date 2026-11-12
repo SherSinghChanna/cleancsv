@@ -37,17 +37,19 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
   userEmail,
   userName,
 }) => {
-  const displayName = profile?.name || userName || 'Customer';
-  const displayEmail = profile?.email || userEmail || 'support@cleancsv.online';
+  // 🟢 सही और एक जैसा ईमेल दिखाने के लिए फिक्स
+  const displayEmail = profile?.email || userEmail || localStorage.getItem('cleancsv_user_email') || 'shersinghchanna0@gmail.com';
+  const displayName = profile?.name || userName || (displayEmail.includes('shersingh') ? 'Sher Singh' : 'Customer');
 
-  // 1. Pro Status Check (Admin, Supabase Data ya Email)
+  // 🟢 प्रो स्टेटस और एडमिन ईमेल चेक को बिल्कुल पक्का किया गया
   const isPro = Boolean(
     profile?.is_pro === true ||
     profile?.subscription_plan === 'PRO' ||
     profile?.plan === 'PRO' ||
     profile?.userType === 'Premium' ||
     profile?.userType === 'Admin' ||
-    displayEmail === 'shersinghchanna0@gmail.com'
+    displayEmail.toLowerCase() === 'shersinghchanna0@gmail.com' ||
+    displayEmail.toLowerCase() === 'support@cleancsv.online'
   );
 
   const currentPlan = isPro ? 'PRO UNLIMITED' : (profile?.plan || 'BASIC');
@@ -66,7 +68,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
     setIsModalOpen(true);
   };
 
-  // क्लीनर पर जाने का सुरक्षित हैंडलर (जो कभी फेल नहीं होगा)
   const handleGoToCleaner = () => {
     if (onNavigateToCleaner) {
       onNavigateToCleaner();
@@ -78,7 +79,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
     }
   };
 
-  // 2. ऑटोमैटिक पेमेंट सक्सेस हैंडलर
   const handlePaymentSuccess = async (planName: string) => {
     try {
       const { error } = await supabase
@@ -124,7 +124,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         </div>
       )}
 
-      {/* PayPal Modal */}
+      {/* PayPal & UPI Modal */}
       <PayPalCheckoutModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -197,12 +197,11 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                 <CreditCard className="w-5 h-5 text-indigo-500" />
                 <div>
                   <div className="text-[11px] text-slate-400 font-semibold uppercase">Payment Method</div>
-                  <div className="text-xs font-bold text-slate-700 mt-0.5">PayPal / Cards Available</div>
+                  <div className="text-xs font-bold text-slate-700 mt-0.5">PayPal / UPI Available</div>
                 </div>
               </div>
             </div>
 
-            {/* Dynamic Button / Status */}
             <div className="pt-2">
               {!isPro ? (
                 <button
@@ -251,7 +250,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
-              {/* PLAN 1: 24-HOUR DAY PASS */}
+              {/* PLAN 1 */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-emerald-300 transition flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
@@ -269,9 +268,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" /> No subscription required
                     </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Standard speed processing
-                    </li>
                   </ul>
                 </div>
                 <button
@@ -283,7 +279,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                 </button>
               </div>
 
-              {/* PLAN 2: MONTHLY PRO */}
+              {/* PLAN 2 */}
               <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-indigo-600 relative flex flex-col justify-between">
                 <span className="absolute -top-3 left-6 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
                   Most Popular
@@ -304,9 +300,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Auto-header & date formatting
                     </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-indigo-600" /> Fast priority server
-                    </li>
                   </ul>
                 </div>
                 <button
@@ -318,7 +311,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                 </button>
               </div>
 
-              {/* PLAN 3: YEARLY PRO */}
+              {/* PLAN 3 */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-indigo-300 transition flex flex-col justify-between">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
@@ -335,9 +328,6 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Batch CSV processing
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Priority 24/7 email support
                     </li>
                   </ul>
                 </div>
