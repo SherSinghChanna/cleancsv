@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { TranslationStrings } from '../translations';
 import { CleanedFile, Language } from '../types';
 import { parseCSV, cleanCSVData, stringifyCSV, triggerDownload, SAMPLE_MESSY_CSV } from '../utils/csvEngine';
+import { exportDataAsExcel, exportDataAsJSON } from '../utils/exportEngine';
 import confetti from 'canvas-confetti';
 import { 
   UploadCloud, 
@@ -236,6 +237,22 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     triggerDownload(csvContent, cleanedFile.name);
   };
 
+  const handleExcelDownload = () => {
+    if (!cleanedFile) return;
+    const formattedData = cleanedFile.rows.map(r => 
+      Object.fromEntries(cleanedFile.headers.map((h, i) => [h, r[i]]))
+    );
+    exportDataAsExcel(formattedData, cleanedFile.name.replace('.csv', '.xlsx'));
+  };
+
+  const handleJsonDownload = () => {
+    if (!cleanedFile) return;
+    const formattedData = cleanedFile.rows.map(r => 
+      Object.fromEntries(cleanedFile.headers.map((h, i) => [h, r[i]]))
+    );
+    exportDataAsJSON(formattedData, cleanedFile.name.replace('.csv', '.json'));
+  };
+
   const handleDeleteFromServer = () => {
     setCleanedFile(null);
     setRawCSVContent(null);
@@ -267,7 +284,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
       <div className="relative max-w-3xl mx-auto px-3 sm:px-6 pt-5 sm:pt-10">
         
-        {/* H1 Heading - Mobile Friendly */}
+        {/* H1 Heading */}
         <div className="text-center mb-6 sm:mb-8 px-1">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2 leading-tight">
             Clean & Format CSV Files Instantly
@@ -436,11 +453,24 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
-                <button type="button" onClick={handleDownload} className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+              {/* 🟢 Multi-Format Download Buttons (CSV, Excel, JSON) */}
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 mb-4">
+                <button type="button" onClick={handleDownload} className="px-5 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Download className="w-4 h-4" />
-                  <span>{t.downloadFile}</span>
+                  <span>Download CSV</span>
                 </button>
+
+                <button type="button" onClick={handleExcelDownload} className="px-5 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Download Excel</span>
+                </button>
+
+                <button type="button" onClick={handleJsonDownload} className="px-5 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+                  <span>Download JSON</span>
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
                 <button type="button" onClick={() => setShowPreviewModal(true)} className="w-full sm:w-auto px-5 py-3 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Eye className="w-4 h-4 text-indigo-600" />
                   <span>{t.previewData} / Edit</span>
@@ -499,7 +529,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
         </div>
       </div>
 
-      {/* Editable Preview Modal - Mobile Responsive */}
+      {/* Editable Preview Modal */}
       {showPreviewModal && cleanedFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden">
