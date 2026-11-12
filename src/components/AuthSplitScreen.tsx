@@ -421,7 +421,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
                 required 
                 value={adminId} 
                 onChange={(e) => setAdminId(e.target.value)} 
-                placeholder="shersinghchanna0@gmail.com"
+                placeholder="Enter Admin ID"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-indigo-500" 
               />
             </div>
@@ -434,7 +434,7 @@ export const AuthSplitScreen: React.FC<AuthSplitScreenProps> = ({
                 required 
                 value={adminPassword} 
                 onChange={(e) => setAdminPassword(e.target.value)} 
-                placeholder="••••••••"
+                placeholder="Enter Password"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-indigo-500" 
               />
             </div>
