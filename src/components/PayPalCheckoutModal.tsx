@@ -23,7 +23,7 @@ export const PayPalCheckoutModal: React.FC<PayPalModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 💳 आपकी असली UPI ID यहाँ सेट है
+  // 💳 यह सिर्फ बैकग्राउंड में QR कोड बनाने के काम आएगी, स्क्रीन पर किसी को नहीं दिखेगी
   const UPI_ID = "9050271101@upi"; 
   
   const PAYPAL_CLIENT_ID = "BAAczSdBiwb6z6E_rAri1brmC85V-zqDSi7uPdC7mhciu4mjdORNmCPv_N-jEW8RSkBOs85_z-QqxPz0KM";
@@ -149,9 +149,12 @@ export const PayPalCheckoutModal: React.FC<PayPalModalProps> = ({
               <p className="text-sm text-slate-500 mb-2">
                 Total Amount: <span className="font-bold text-emerald-600 text-xl">₹{priceInINR}</span>
               </p>
-              <p className="text-xs text-indigo-600 font-mono mb-4 font-semibold">
-                UPI ID: {UPI_ID}
-              </p>
+              
+              {/* 🟢 यहाँ नंबर की जगह अब प्रोफेशनल मर्चेंट टैग दिखेगा */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold mb-4">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>CleanCSV Official Merchant QR</span>
+              </div>
               
               <div className="bg-white p-2 border-2 border-emerald-100 rounded-2xl shadow-sm mb-4 inline-block">
                 <img 
