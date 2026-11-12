@@ -95,7 +95,6 @@ export default function App() {
   const t = translations[currentLanguage];
 
   const handleNavigateView = (view: any) => {
-    // अगर कोई cleaner या home भेजे तो सुरक्षित तरीके से home सेट करें
     const targetView = (view === 'cleaner' || view === 'home') ? 'home' : view;
     setCurrentView(targetView);
     localStorage.setItem('cleancsv_current_view', targetView);
@@ -180,7 +179,8 @@ export default function App() {
       return;
     }
 
-    if (!isLoggedIn && freeFilesUsed >= 3) {
+    // 🟢 स्मार्ट पास: नया यूज़र 1 फाइल बिना लॉगिन के फ्री में क्लीन कर सकता है, दूसरी फाइल पर लॉगिन मांगेगा
+    if (!isLoggedIn && freeFilesUsed >= 1) {
       handleNavigateView('auth');
       return;
     }
@@ -404,7 +404,6 @@ export default function App() {
       />
 
       <div className="flex-1">
-        {/* Profile View */}
         {currentView === 'profile' && isLoggedIn ? (
           <CustomerProfile
             t={t}
@@ -443,7 +442,6 @@ export default function App() {
             onAdminLoginSuccess={handleAdminDirectLogin}
           />
         ) : (
-          /* Default Fallback: HomeCleaner (ताकि स्क्रीन कभी भी सफेद न हो) */
           <HomeCleaner
             t={t}
             freeFilesUsed={freeFilesUsed}
