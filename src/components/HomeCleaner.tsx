@@ -131,7 +131,63 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     reader.readAsText(file);
   };
 
-  // 100% खुद का In-Browser OCR Scanner (बिना किसी API Limit या Server Upload के)
+  // खुद का Image Pre-Processor: परछाई और कॉपी की लाइनों को हटाकर स्याही को साफ़ करना
+  const enhanceImageForLocalOCR = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // अक्षरों को साफ़ पढ़ने के लिए 2200px तक स्केल करना
+          const TARGET_WIDTH = Math.min(2200, Math.max(1400, img.width * 1.5));
+          const scale = TARGET_WIDTH / img.width;
+          const width = Math.round(img.width * scale);
+          const height = Math.round(img.height * scale);
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas error'));
+            return;
+          }
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const imgData = ctx.getImageData(0, 0, width, height);
+          const d = imgData.data;
+
+          // औसत चमक (brightness) निकालकर परछाई और हल्की लाइनों को फ़िल्टर करना
+          let totalLum = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            totalLum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          }
+          const avgLum = totalLum / (d.length / 4);
+          const threshold = avgLum * 0.82;
+
+          for (let i = 0; i < d.length; i += 4) {
+            const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            const val = lum < threshold ? 0 : 255;
+            d[i] = val;
+            d[i + 1] = val;
+            d[i + 2] = val;
+          }
+
+          ctx.putImageData(imgData, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 100% खुद का In-Browser OCR + Smart Key-Value / Table Parser (Zero External API)
   const handleImageSelected = async (imageFile: File) => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
@@ -140,44 +196,75 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }
 
     setIsProcessing(true);
-    setProcessingLabel('Reading text from photo in-browser...');
+    setProcessingLabel('Enhancing photo & running in-browser OCR...');
     setProgressPercent(15);
     setIsDeletedMessage(null);
     setCleanedFile(null);
 
     try {
+      const cleanDataUrl = await enhanceImageForLocalOCR(imageFile);
+      setProgressPercent(30);
+
       const worker = await createWorker('eng', 1, {
         logger: (m) => {
           if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-            setProgressPercent(Math.min(90, Math.round(20 + m.progress * 70)));
+            setProgressPercent(Math.min(92, Math.round(30 + m.progress * 62)));
           }
         },
       });
 
-      const { data: { text } } = await worker.recognize(imageFile);
+      const { data: { text } } = await worker.recognize(cleanDataUrl);
       await worker.terminate();
 
       if (!text || !text.trim()) {
         throw new Error('फ़ोटो से कोई अक्षर नहीं पढ़े जा सके। कृपया साफ़ रोशनी में खींची फ़ोटो चुनें।');
       }
 
-      const lines = text
+      const rawLines = text
         .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
+        .map((line) => line.replace(/[|_~`]+/g, ' ').trim())
+        .filter((line) => line.length > 1);
 
-      const csvLines = lines.map((line) => {
-        const cols = line
-          .split(/\s{2,}|\t|\|/)
-          .map((col) => {
-            const cleanCol = col.trim();
-            return cleanCol.includes(',') ? `"${cleanCol.replace(/"/g, '""')}"` : cleanCol;
-          })
-          .filter((c) => c !== '');
-        return cols.join(',');
-      });
+      // जाँचें कि क्या यह Key-Value (जैसे Name - Navneet Kaur) फ़ॉर्मेट है या मल्टी-कॉलम टेबल
+      let kvCount = 0;
+      for (const l of rawLines) {
+        if (/^([A-Za-z0-9\s./()]{2,30})\s*[-:=–—]+\s*(.+)$/.test(l)) {
+          kvCount++;
+        }
+      }
 
-      const generatedCSV = csvLines.join('\n');
+      let generatedCSV = '';
+
+      if (kvCount >= 2) {
+        // 2-Column Smart Key-Value CSV (Field, Value)
+        const rows = ['Field,Value'];
+        for (const line of rawLines) {
+          const match = line.match(/^([A-Za-z0-9\s./()]{2,30}?)\s*[-:=–—]+\s*(.+)$/);
+          if (match) {
+            const field = match[1].trim().replace(/"/g, '""');
+            const value = match[2].trim().replace(/"/g, '""');
+            rows.push(`"${field}","${value}"`);
+          } else {
+            const safeLine = line.replace(/"/g, '""');
+            rows.push(`"Note","${safeLine}"`);
+          }
+        }
+        generatedCSV = rows.join('\n');
+      } else {
+        // Multi-Column Table CSV
+        const csvLines = rawLines.map((line) => {
+          const cols = line
+            .split(/\s{2,}|\t/)
+            .map((col) => {
+              const cleanCol = col.trim();
+              return cleanCol.includes(',') ? `"${cleanCol.replace(/"/g, '""')}"` : cleanCol;
+            })
+            .filter((c) => c !== '');
+          return cols.join(',');
+        });
+        generatedCSV = csvLines.join('\n');
+      }
+
       const baseName = imageFile.name.replace(/\.[^/.]+$/, '') || 'scanned_photo';
       const csvFileName = `${baseName}_scanned.csv`;
 
@@ -186,7 +273,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       setIsProcessing(false);
       setProgressPercent(0);
 
-      executeClean(generatedCSV, csvFileName);
+      executeClean(generatedCSV, csvFileName, true);
     } catch (err: any) {
       console.error('Local OCR Error:', err);
       setIsProcessing(false);
@@ -195,6 +282,19 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     } finally {
       if (imageInputRef.current) imageInputRef.current.value = '';
     }
+  };
+
+  // Preview Modal में किसी भी सेल को सीधे एडिट करने का फ़ंक्शन
+  const handleCellEdit = (rowIndex: number, colIndex: number, newValue: string) => {
+    if (!cleanedFile) return;
+    const updatedRows = cleanedFile.rows.map((r, rIdx) =>
+      rIdx === rowIndex ? r.map((c, cIdx) => (cIdx === colIndex ? newValue : c)) : r
+    );
+    setCleanedFile({
+      ...cleanedFile,
+      rows: updatedRows,
+      cleanedSize: new Blob([stringifyCSV(cleanedFile.headers, updatedRows)]).size,
+    });
   };
 
   const handleLoadSample = () => {
@@ -241,7 +341,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     executeClean(rawCSVContent, selectedFileName || 'cleaned_data.csv');
   };
 
-  const executeClean = (rawText: string, fileName: string) => {
+  const executeClean = (rawText: string, fileName: string, openPreviewAfter = false) => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
       alert("You have reached the free limit of 3 files. Please log in or upgrade to continue.");
       onNavigateToPricing();
@@ -285,6 +385,10 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       setCleanedFile(resultFile);
       setIsProcessing(false);
 
+      if (openPreviewAfter) {
+        setShowPreviewModal(true);
+      }
+
       if (!isUnlimitedUser) {
         onIncrementUsage();
       }
@@ -303,7 +407,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       } catch {
         // silent
       }
-    }, 700);
+    }, 600);
   };
 
   const handleDownload = () => {
@@ -322,11 +426,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   };
 
   const filteredRows = cleanedFile
-    ? cleanedFile.rows.filter((row) =>
-        previewSearch === ''
-          ? true
-          : row.some((cell) => cell.toLowerCase().includes(previewSearch.toLowerCase()))
-      )
+    ? cleanedFile.rows
+        .map((row, originalIndex) => ({ row, originalIndex }))
+        .filter(({ row }) =>
+          previewSearch === ''
+            ? true
+            : row.some((cell) => cell.toLowerCase().includes(previewSearch.toLowerCase()))
+        )
     : [];
 
   return (
@@ -537,7 +643,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 </button>
                 <button type="button" onClick={() => setShowPreviewModal(true)} className="w-full sm:w-auto px-5 py-3 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Eye className="w-4 h-4 text-indigo-600" />
-                  <span>{t.previewData}</span>
+                  <span>{t.previewData} / Edit</span>
                 </button>
                 <button type="button" onClick={handleDeleteFromServer} className="w-full sm:w-auto px-5 py-3 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Trash2 className="w-4 h-4" />
@@ -609,7 +715,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
         </div>
       </div>
 
-      {/* Preview Modal - Mobile Responsive */}
+      {/* Editable Preview Modal - Mobile Responsive */}
       {showPreviewModal && cleanedFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden">
@@ -618,7 +724,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
-                    <span>Cleaned Dataset Preview</span>
+                    <span>Cleaned Dataset Preview (Click any cell to edit)</span>
                   </h3>
                   <p className="text-[11px] sm:text-xs text-slate-500 truncate max-w-[240px] sm:max-w-md">
                     {cleanedFile.name} · {cleanedFile.rows.length} rows · {cleanedFile.headers.length} columns
@@ -651,14 +757,19 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredRows.slice(0, 50).map((row, rIdx) => (
-                    <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                  {filteredRows.slice(0, 100).map(({ row, originalIndex }) => (
+                    <tr key={originalIndex} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-2 px-3 text-center text-slate-400 font-mono tabular-nums text-[11px]">
-                        {rIdx + 1}
+                        {originalIndex + 1}
                       </td>
                       {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="py-2 px-3 text-slate-800 whitespace-nowrap font-mono text-[11px]">
-                          {cell}
+                        <td key={cIdx} className="py-1 px-2 text-slate-800 whitespace-nowrap font-mono text-[11px]">
+                          <input
+                            type="text"
+                            value={cell}
+                            onChange={(e) => handleCellEdit(originalIndex, cIdx, e.target.value)}
+                            className="w-full min-w-[110px] px-2 py-1 bg-transparent hover:bg-slate-100 focus:bg-emerald-50 border border-transparent focus:border-emerald-400 rounded outline-hidden text-slate-800"
+                          />
                         </td>
                       ))}
                     </tr>
@@ -668,7 +779,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             </div>
             <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
               <span className="text-slate-500 text-center sm:text-left">
-                Showing {Math.min(filteredRows.length, 50)} of {cleanedFile.rows.length} cleaned records
+                Showing {Math.min(filteredRows.length, 100)} of {cleanedFile.rows.length} cleaned records
               </span>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button onClick={() => setShowPreviewModal(false)} className="flex-1 sm:flex-initial px-4 py-2 font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer">
