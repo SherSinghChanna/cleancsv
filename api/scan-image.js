@@ -22,41 +22,50 @@ Rules:
 3. Use a comma (,) as the delimiter and wrap values containing commas in double quotes.
 4. Create clear, logical column headers in the first row if headers are missing.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
+    // यदि पहला मॉडल व्यस्त (high demand) हो, तो अपने आप अगले उपलब्ध मॉडल से कोशिश करेगा
+    const models = ['gemini-3.8-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-pro'];
+    let lastError = 'AI service is busy, please try again.';
+
+    for (const model of models) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
                 {
-                  inline_data: {
-                    mime_type: mimeType || 'image/jpeg',
-                    data: imageBase64,
-                  },
+                  parts: [
+                    { text: prompt },
+                    {
+                      inline_data: {
+                        mime_type: mimeType || 'image/jpeg',
+                        data: imageBase64,
+                      },
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-        }),
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          let csvText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          csvText = csvText.replace(/^```csv\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+          return res.status(200).json({ csv: csvText });
+        }
+
+        lastError = data.error?.message || lastError;
+      } catch (e) {
+        lastError = e.message || lastError;
       }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Gemini API Error:', data);
-      return res.status(500).json({ error: data.error?.message || 'Gemini AI failed to read image' });
     }
 
-    let csvText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    // यदि गलती से markdown backticks आ जाएँ तो उन्हें साफ़ कर दें
-    csvText = csvText.replace(/^```csv\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-
-    return res.status(200).json({ csv: csvText });
+    return res.status(503).json({ error: lastError });
   } catch (error) {
     console.error('Scan API Error:', error);
     return res.status(500).json({ error: 'Internal server error while scanning image' });

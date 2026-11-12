@@ -130,6 +130,45 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     reader.readAsText(file);
   };
 
+  // फ़ोटो को अपलोड करने से पहले हल्का (Compress) करने वाला हेल्पर ताकि मोबाइल से Failed to fetch न आए
+  const compressImageToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas error'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          resolve({
+            base64: dataUrl.split(',')[1],
+            mimeType: 'image/jpeg',
+          });
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handwritten / Photo to CSV Scanner Logic
   const handleImageSelected = async (imageFile: File) => {
     if (!isUnlimitedUser && freeFilesUsed >= 3) {
@@ -139,22 +178,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }
 
     setIsProcessing(true);
-    setProcessingLabel('Scanning handwritten/photo table with AI...');
+    setProcessingLabel('Optimizing & scanning photo with AI...');
     setProgressPercent(25);
     setIsDeletedMessage(null);
     setCleanedFile(null);
 
     try {
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64 = result.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(imageFile);
-      });
+      const { base64, mimeType } = await compressImageToBase64(imageFile);
 
       setProgressPercent(55);
 
@@ -162,8 +192,8 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: base64Data,
-          mimeType: imageFile.type || 'image/jpeg',
+          imageBase64: base64,
+          mimeType,
         }),
       });
 
@@ -192,7 +222,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       console.error('Photo Scan Error:', err);
       setIsProcessing(false);
       setProgressPercent(0);
-      alert(err?.message || 'फ़ोटो स्कैन करने में समस्या आई। कृपया लाइव वेबसाइट पर जांचें या साफ़ फ़ोटो अपलोड करें।');
+      alert(err?.message || 'फ़ोटो स्कैन करने में समस्या आई। कृपया साफ़ फ़ोटो अपलोड करें।');
     } finally {
       if (imageInputRef.current) imageInputRef.current.value = '';
     }
@@ -335,7 +365,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
       
       {/* Background Graphic Lines */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <svg className="w-full h-full" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
           <path d="M -100 280 C 150 180, 250 480, 600 380 S 1100 500, 1600 320" fill="none" stroke="#10b981" strokeWidth="1.4" opacity="0.45" />
           <path d="M -80 420 C 220 520, 480 200, 850 320 S 1350 180, 1700 450" fill="none" stroke="#0284c7" strokeWidth="1.2" opacity="0.4" />
         </svg>
