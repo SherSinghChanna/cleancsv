@@ -23,7 +23,7 @@ export const PLANS_DATA: PricingPlan[] = [
     features: [
       'Unlimited CSV Cleaning',
       'Deduplicate & Trim Spaces',
-      'Standard CSV & JSON Export'
+      'Standard CSV (.csv) Export Only'
     ],
     buttonText: 'Current Plan',
   },
@@ -37,7 +37,7 @@ export const PLANS_DATA: PricingPlan[] = [
     popular: true,
     features: [
       'Unlimited Files (50MB+)',
-      'Direct Excel (.xlsx) Export',
+      'Direct Excel (.xlsx) & JSON Export',
       'Priority 24/7 Support'
     ],
     buttonText: 'Upgrade Monthly ($1.99)',
@@ -53,7 +53,7 @@ export const PLANS_DATA: PricingPlan[] = [
     features: [
       'All Unlimited Pro Features',
       '12 Months Full Access',
-      'Excel & JSON Multi-Export'
+      'Excel (.xlsx) & JSON Multi-Export'
     ],
     buttonText: 'Get Yearly Pro ($15)',
   },
@@ -68,7 +68,7 @@ export const PLANS_DATA: PricingPlan[] = [
     features: [
       'Up to 10 Team Seats',
       'Bulk File Processing (100MB+)',
-      'Dedicated VIP Support'
+      'All Exports (CSV, Excel, JSON) + VIP Support'
     ],
     buttonText: 'Get Business Team ($19)',
   },

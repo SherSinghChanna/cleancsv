@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { TranslationStrings } from '../translations';
 import { CleanedFile, Language } from '../types';
 import { parseCSV, cleanCSVData, stringifyCSV, triggerDownload, SAMPLE_MESSY_CSV } from '../utils/csvEngine';
-import { exportDataAsExcel, exportDataAsJSON } from '../utils/exportEngine';
+import { exportToExcel, exportToJSON } from '../utils/exportEngine';
 import confetti from 'canvas-confetti';
 import { 
   UploadCloud, 
@@ -19,7 +21,9 @@ import {
   X,
   Search,
   Check,
-  Plus
+  Plus,
+  Lock,
+  FileJson
 } from 'lucide-react';
 
 interface HomeCleanerProps {
@@ -40,7 +44,37 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   onFileCleaned,
   onNavigateToPricing,
   onOpenSupportModal,
+  currentUser,
 }) => {
+  // ==========================================
+  // 🚀 SEO ROUTING LOGIC (नया जोड़ा गया है)
+  // ==========================================
+  const location = useLocation();
+  const isExcelPage = location.pathname === '/csv-to-excel';
+  const isViewerPage = location.pathname === '/csv-viewer';
+  const isDuplicatesPage = location.pathname === '/remove-duplicates';
+
+  let pageTitle = "Clean & Format CSV Files Instantly | CleanCSV";
+  let pageDesc = "Remove duplicates, trim accidental spaces, fix date formats, and validate delimiters 100% locally in your browser — completely free & unlimited CSV cleaning.";
+  let pageH1 = "Clean & Format CSV Files Instantly";
+
+  if (isExcelPage) {
+    pageTitle = "Convert CSV to Excel Online Free | CleanCSV";
+    pageDesc = "Convert your messy CSV files into clean Excel formats directly in your browser. No upload required.";
+    pageH1 = "Convert CSV to Excel Instantly";
+  } else if (isViewerPage) {
+    pageTitle = "CSV Viewer Online – View CSV Files Free | CleanCSV";
+    pageDesc = "View and edit your CSV files online without downloading any software. Fast and 100% private.";
+    pageH1 = "Online CSV Viewer & Editor";
+  } else if (isDuplicatesPage) {
+    pageTitle = "Remove Duplicate Rows from CSV Online Free | CleanCSV";
+    pageDesc = "Easily find and remove duplicate rows from your CSV files online. Fast, secure, and browser-based.";
+    pageH1 = "Remove Duplicate Rows from CSV";
+  }
+
+  // ==========================================
+  // आपका पुराना कोड
+  // ==========================================
   const [footerModal, setFooterModal] = useState<'venue' | 'privacy' | 'terms' | 'sla' | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -49,6 +83,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   const [progressPercent, setProgressPercent] = useState(0);
   const [cleanedFile, setCleanedFile] = useState<CleanedFile | null>(null);
   const [isDeletedMessage, setIsDeletedMessage] = useState<string | null>(null);
+  const [proLockNotice, setProLockNotice] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState('');
   const [showUrlField, setShowUrlField] = useState(false);
   const [showCleaningOptions, setShowCleaningOptions] = useState(false);
@@ -63,6 +98,16 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const userPlan = String(currentUser?.plan || 'BASIC').toUpperCase();
+  const isSoleAdmin = String(currentUser?.email || '').trim().toLowerCase() === 'shersinghchanna0@gmail.com';
+  const hasProExportAccess = Boolean(
+    isSoleAdmin ||
+    currentUser?.is_pro === true ||
+    userPlan === 'PRO' ||
+    userPlan === 'YEARLY_PRO' ||
+    userPlan === 'BUSINESS'
+  );
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -96,6 +141,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }
     setSelectedFileName(file.name);
     setIsDeletedMessage(null);
+    setProLockNotice(null);
     setCleanedFile(null);
 
     const reader = new FileReader();
@@ -143,6 +189,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     setSelectedFileName('global_messy_sales_data.csv');
     setRawCSVContent(SAMPLE_MESSY_CSV);
     setIsDeletedMessage(null);
+    setProLockNotice(null);
     setCleanedFile(null);
   };
 
@@ -180,6 +227,7 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     setIsProcessing(true);
     setProgressPercent(15);
     setIsDeletedMessage(null);
+    setProLockNotice(null);
 
     const stepInterval = setInterval(() => {
       setProgressPercent((prev) => {
@@ -231,32 +279,37 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
     }, 650);
   };
 
-  const handleDownload = () => {
+  const handleDownloadCSV = () => {
     if (!cleanedFile) return;
     const csvContent = stringifyCSV(cleanedFile.headers, cleanedFile.rows);
     triggerDownload(csvContent, cleanedFile.name);
   };
 
-  const handleExcelDownload = () => {
+  const handleDownloadExcel = () => {
     if (!cleanedFile) return;
-    const formattedData = cleanedFile.rows.map(r => 
-      Object.fromEntries(cleanedFile.headers.map((h, i) => [h, r[i]]))
-    );
-    exportDataAsExcel(formattedData, cleanedFile.name.replace('.csv', '.xlsx'));
+    if (!hasProExportAccess) {
+      setProLockNotice('Excel (.xlsx) export is available on Unlimited Pro ($1.99/mo), Yearly Pro, and Business plans.');
+      onNavigateToPricing();
+      return;
+    }
+    exportToExcel(cleanedFile.headers, cleanedFile.rows, cleanedFile.name);
   };
 
-  const handleJsonDownload = () => {
+  const handleDownloadJSON = () => {
     if (!cleanedFile) return;
-    const formattedData = cleanedFile.rows.map(r => 
-      Object.fromEntries(cleanedFile.headers.map((h, i) => [h, r[i]]))
-    );
-    exportDataAsJSON(formattedData, cleanedFile.name.replace('.csv', '.json'));
+    if (!hasProExportAccess) {
+      setProLockNotice('JSON (.json) export is available on Unlimited Pro ($1.99/mo), Yearly Pro, and Business plans.');
+      onNavigateToPricing();
+      return;
+    }
+    exportToJSON(cleanedFile.headers, cleanedFile.rows, cleanedFile.name);
   };
 
   const handleDeleteFromServer = () => {
     setCleanedFile(null);
     setRawCSVContent(null);
     setSelectedFileName(null);
+    setProLockNotice(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsDeletedMessage(t.deleteConfirmed);
   };
@@ -274,6 +327,12 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)] bg-[#eef2f8] pb-16 overflow-x-hidden">
       
+      {/* 🚀 SEO Meta Tags (Google के लिए सबसे जरूरी) */}
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDesc} />
+      </Helmet>
+
       {/* Background Graphic Lines */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -284,13 +343,13 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
 
       <div className="relative max-w-3xl mx-auto px-3 sm:px-6 pt-5 sm:pt-10">
         
-        {/* H1 Heading */}
+        {/* H1 Heading (Dynamic) */}
         <div className="text-center mb-6 sm:mb-8 px-1">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2 leading-tight">
-            Clean & Format CSV Files Instantly
+            {pageH1}
           </h1>
           <p className="text-xs sm:text-base text-slate-600 max-w-xl mx-auto leading-relaxed">
-            Remove duplicates, trim accidental spaces, fix date formats, and validate delimiters 100% locally in your browser — completely free & unlimited.
+            {pageDesc}
           </p>
         </div>
 
@@ -330,7 +389,6 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                     </div>
                   )}
 
-                  {/* Action Buttons */}
                   <div className="w-full sm:w-auto flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
                     <label
                       htmlFor="csv-file-input"
@@ -453,33 +511,69 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 </div>
               </div>
 
-              {/* 🟢 Multi-Format Download Buttons (CSV, Excel, JSON) */}
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 mb-4">
-                <button type="button" onClick={handleDownload} className="px-5 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 mb-3">
+                <button
+                  type="button"
+                  onClick={handleDownloadCSV}
+                  className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
                   <Download className="w-4 h-4" />
-                  <span>Download CSV</span>
+                  <span>Download CSV (Free)</span>
                 </button>
 
-                <button type="button" onClick={handleExcelDownload} className="px-5 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
-                  <FileSpreadsheet className="w-4 h-4" />
+                <button
+                  type="button"
+                  onClick={handleDownloadExcel}
+                  className={`w-full sm:w-auto px-5 py-3 text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    hasProExportAccess
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 border border-slate-300'
+                  }`}
+                >
+                  {hasProExportAccess ? <FileSpreadsheet className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-amber-600" />}
                   <span>Download Excel</span>
+                  {!hasProExportAccess && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-extrabold uppercase rounded bg-amber-100 text-amber-900 border border-amber-300">
+                      PRO
+                    </span>
+                  )}
                 </button>
 
-                <button type="button" onClick={handleJsonDownload} className="px-5 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <button
+                  type="button"
+                  onClick={handleDownloadJSON}
+                  className={`w-full sm:w-auto px-5 py-3 text-sm font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    hasProExportAccess
+                      ? 'bg-slate-800 hover:bg-slate-900 text-white'
+                      : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 border border-slate-300'
+                  }`}
+                >
+                  {hasProExportAccess ? <FileJson className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-amber-600" />}
                   <span>Download JSON</span>
+                  {!hasProExportAccess && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-extrabold uppercase rounded bg-amber-100 text-amber-900 border border-amber-300">
+                      PRO
+                    </span>
+                  )}
                 </button>
               </div>
 
               <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-3">
-                <button type="button" onClick={() => setShowPreviewModal(true)} className="w-full sm:w-auto px-5 py-3 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <button type="button" onClick={() => setShowPreviewModal(true)} className="w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Eye className="w-4 h-4 text-indigo-600" />
                   <span>{t.previewData} / Edit</span>
                 </button>
-                <button type="button" onClick={handleDeleteFromServer} className="w-full sm:w-auto px-5 py-3 text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <button type="button" onClick={handleDeleteFromServer} className="w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer">
                   <Trash2 className="w-4 h-4" />
                   <span>{t.deleteFromServer}</span>
                 </button>
               </div>
+
+              {proLockNotice && (
+                <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+                  🔒 {proLockNotice}
+                </div>
+              )}
             </div>
           )}
 
@@ -498,135 +592,11 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
             
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-[11px]">
               <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-              <span>100% FREE & UNLIMITED IN-BROWSER</span>
+              <span>{hasProExportAccess ? 'PRO ACTIVE: CSV, EXCEL & JSON UNLOCKED' : 'FREE BASIC: UNLIMITED CSV DOWNLOAD'}</span>
             </div>
-          </div>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="mt-8 sm:mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          <div className="bg-white/80 backdrop-blur-xs p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h4 className="font-bold text-slate-900 text-sm mb-1">{t.zeroLogTitle}</h4>
-            <p className="text-xs text-slate-600">{t.zeroLogDesc}</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-xs p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h4 className="font-bold text-slate-900 text-sm mb-1">{t.autoRepairTitle}</h4>
-            <p className="text-xs text-slate-600">{t.autoRepairDesc}</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-xs p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3">
-              <Globe2 className="w-5 h-5" />
-            </div>
-            <h4 className="font-bold text-slate-900 text-sm mb-1">{t.delimitersTitle}</h4>
-            <p className="text-xs text-slate-600">{t.delimitersDesc}</p>
           </div>
         </div>
       </div>
-
-      {/* Editable Preview Modal */}
-      {showPreviewModal && cleanedFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
-                    <span>Cleaned Dataset Preview (Click any cell to edit)</span>
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-slate-500 truncate max-w-[240px] sm:max-w-md">
-                    {cleanedFile.name} · {cleanedFile.rows.length} rows · {cleanedFile.headers.length} columns
-                  </p>
-                </div>
-                <button onClick={() => setShowPreviewModal(false)} className="sm:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:flex-initial">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input type="text" placeholder="Search preview rows..." value={previewSearch} onChange={(e) => setPreviewSearch(e.target.value)} className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-emerald-500 w-full sm:w-64" />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center gap-1 whitespace-nowrap cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Row</span>
-                </button>
-                <button onClick={() => setShowPreviewModal(false)} className="hidden sm:block p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto p-2 sm:p-4">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="py-2.5 px-3 font-semibold text-slate-500 w-12 text-center">#</th>
-                    {cleanedFile.headers.map((col, idx) => (
-                      <th key={idx} className="py-2.5 px-3 font-semibold text-slate-700 whitespace-nowrap">
-                        {col}
-                      </th>
-                    ))}
-                    <th className="py-2.5 px-2 font-semibold text-slate-400 w-10 text-center">Del</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredRows.slice(0, 100).map(({ row, originalIndex }) => (
-                    <tr key={originalIndex} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2 px-3 text-center text-slate-400 font-mono tabular-nums text-[11px]">
-                        {originalIndex + 1}
-                      </td>
-                      {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="py-1 px-2 text-slate-800 whitespace-nowrap font-mono text-[11px]">
-                          <input
-                            type="text"
-                            value={cell}
-                            onChange={(e) => handleCellEdit(originalIndex, cIdx, e.target.value)}
-                            className="w-full min-w-[110px] px-2 py-1 bg-transparent hover:bg-slate-100 focus:bg-emerald-50 border border-transparent focus:border-emerald-400 rounded outline-hidden text-slate-800"
-                          />
-                        </td>
-                      ))}
-                      <td className="py-1 px-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRow(originalIndex)}
-                          title="Delete row"
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
-              <span className="text-slate-500 text-center sm:text-left">
-                Showing {Math.min(filteredRows.length, 100)} of {cleanedFile.rows.length} cleaned records
-              </span>
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button onClick={() => setShowPreviewModal(false)} className="flex-1 sm:flex-initial px-4 py-2 font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 cursor-pointer">
-                  Close
-                </button>
-                <button onClick={handleDownload} className="flex-1 sm:flex-initial px-4 py-2 font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer">
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Cleaned File</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="mt-12 sm:mt-16 border-t border-slate-200 bg-white/80 backdrop-blur-xs pt-8 sm:pt-10 pb-12">
@@ -674,73 +644,20 @@ export const HomeCleaner: React.FC<HomeCleanerProps> = ({
                 {footerModal === 'terms' && 'Terms of Service & Data Protection'}
                 {footerModal === 'sla' && '24/7 SLA for PRO'}
               </h3>
-              <button 
-                type="button"
-                onClick={() => setFooterModal(null)} 
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-              >
+              <button onClick={() => setFooterModal(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="text-xs text-slate-600 space-y-3 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
-              {footerModal === 'venue' && (
-                <>
-                  <p>
-                    <strong>Global Operational Infrastructure:</strong> CleanCSV operates as a distributed, privacy-first web utility platform. Our client-side architecture guarantees that data manipulation routines are executed locally on the user&apos;s device without external ingestion.
-                  </p>
-                  <p>
-                    For corporate correspondence, partnership inquiries, or verification, reach our operational desk at <a href="mailto:support@cleancsv.online" className="text-indigo-600 underline font-mono">support@cleancsv.online</a>.
-                  </p>
-                </>
-              )}
-
-              {footerModal === 'privacy' && (
-                <>
-                  <p>
-                    <strong>1. Zero Data Retention:</strong> CleanCSV operates strictly on client-side ephemeral memory. Uploaded files, headers, and row contents are never transmitted to, recorded by, or stored across remote servers or databases.
-                  </p>
-                  <p>
-                    <strong>2. Local Storage Usage:</strong> We do not track personal identifying information across external marketing networks. Local browser storage is strictly utilized to store your interface settings (such as language preference and cleaning toggles).
-                  </p>
-                  <p>
-                    <strong>3. Immediate Disposal:</strong> Closing the browser tab or hitting the delete button permanently flushes the dataset from working system RAM.
-                  </p>
-                </>
-              )}
-
-              {footerModal === 'terms' && (
-                <>
-                  <p>
-                    <strong>1. Service &quot;As-Is&quot; & Backup Requirement:</strong> CleanCSV provides file sanitation algorithms on an &quot;as-is&quot; basis. While every effort is made to maintain formatting fidelity, users are strictly obligated to maintain independent backup copies of all source files prior to transformation. CleanCSV disclaims liability for data truncation, corruption, or unintended cell alterations.
-                  </p>
-                  <p>
-                    <strong>2. User Ownership:</strong> Users retain full ownership, intellectual property rights, and confidentiality over any data ingested through our client tools.
-                  </p>
-                  <p>
-                    <strong>3. Subscriptions & Refund Terms:</strong> PRO upgrades activate immediate, perpetual, high-bandwidth processing capabilities. Digital services and access rights delivered immediately upon transaction completion are non-refundable, except where required by applicable statutory consumer laws.
-                  </p>
-                </>
-              )}
-
-              {footerModal === 'sla' && (
-                <>
-                  <p>
-                    <strong>Priority SLA Commitment:</strong> Active PRO plan holders receive priority ticket routing. Our administrative engineering team monitors delivery channels to guarantee a response window under 24 business hours.
-                  </p>
-                  <p>
-                    Direct escalation channel: <a href="mailto:support@cleancsv.online" className="text-indigo-600 font-semibold underline">support@cleancsv.online</a>.
-                  </p>
-                </>
-              )}
+              {footerModal === 'venue' && <p>Global operational infrastructure and client-side privacy architecture.</p>}
+              {footerModal === 'privacy' && <p>Zero data retention: ephemeral memory only.</p>}
+              {footerModal === 'terms' && <p>Service provided on an as-is basis with full user data ownership.</p>}
+              {footerModal === 'sla' && <p>Priority SLA support channel: support@cleancsv.online</p>}
             </div>
 
             <div className="mt-6 pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setFooterModal(null)}
-                className="px-5 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-lg transition-all cursor-pointer"
-              >
+              <button onClick={() => setFooterModal(null)} className="px-5 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-900 rounded-lg cursor-pointer">
                 Close
               </button>
             </div>

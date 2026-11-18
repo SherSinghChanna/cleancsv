@@ -4,46 +4,43 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Primary SEO Meta Tags -->
   <title>CSV Online – Free In-Browser CSV Cleaner, Formatter & Viewer | CleanCSV</title>
-  <meta name="title" content="CSV Online – Free In-Browser CSV Cleaner, Formatter & Viewer | CleanCSV" />
   <meta name="description" content="Clean, repair, format, and view CSV online directly in your browser. Fix broken commas, standardize mixed date formats, remove duplicates, and convert CSV to clean Excel formats with 100% data privacy." />
-  <meta name="keywords" content="csv online, csv format, csv viewer, csv file, clean csv online, csv to excel, repair csv file, fix csv commas, browser csv cleaner" />
   <meta name="robots" content="index, follow, max-image-preview:large" />
   <link rel="canonical" href="https://www.cleancsv.online/" />
 
-  <!-- Favicon (Browser Tab & Google Search Logo) -->
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="alternate icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/favicon.svg" />
 
-  <!-- Open Graph / Social Sharing & Google Image Meta -->
+  <!-- Open Graph / Social Sharing -->
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="CleanCSV" />
   <meta property="og:url" content="https://www.cleancsv.online/" />
   <meta property="og:title" content="CSV Online – In-Browser CSV Cleaner & Viewer" />
   <meta property="og:description" content="Clean, format, and view CSV online instantly. Fix broken delimiters, remove duplicate rows, and ensure 100% client-side privacy." />
   <meta property="og:image" content="https://www.cleancsv.online/clean-csv-online-preview.png" />
   <meta property="og:image:width" content="958" />
   <meta property="og:image:height" content="625" />
-  <meta property="og:image:alt" content="CleanCSV - Free In-Browser Cleaned Dataset Preview and Editor" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="CSV Online – In-Browser CSV Cleaner & Viewer" />
-  <meta name="twitter:description" content="Clean, format, and view CSV online instantly. Fix broken delimiters, remove duplicate rows, and ensure 100% client-side privacy." />
+  <meta name="twitter:description" content="Clean, format, and view CSV online instantly. Fix broken delimiters and ensure 100% client-side privacy." />
   <meta name="twitter:image" content="https://www.cleancsv.online/clean-csv-online-preview.png" />
 
-  <!-- Structured Data (Google Schema for WebApp & Image) -->
+  <!-- WebApplication Schema -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "CleanCSV Online",
     "url": "https://www.cleancsv.online/",
-    "applicationCategory": "BusinessApplication",
+    "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "All",
     "description": "Zero-retention client-side tool to clean, format, validate, and view CSV online directly in memory.",
-    "image": "https://www.cleancsv.online/clean-csv-online-preview.png",
-    "screenshot": "https://www.cleancsv.online/clean-csv-online-preview.png",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -51,16 +48,44 @@
     }
   }
   </script>
+
+  <!-- FAQ Schema (Google Search me Questions show honge) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How do I clean a CSV file online for free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Upload or paste your CSV into CleanCSV, and it automatically fixes broken commas, removes duplicate rows, and standardizes date formats — all in your browser without uploading data to any server."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my CSV data safe with CleanCSV?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. CleanCSV runs entirely in your browser (client-side). Your CSV files are never uploaded to any server, ensuring 100% data privacy."
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <!-- Product Hunt Launch Floating Badge -->
-  <div style="position: fixed; bottom: 20px; right: 20px; z-index: 30;">
-    <a href="https://www.producthunt.com/posts/cleancsv-3?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-cleancsv&#0045;3" target="_blank">
+  <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+    <a href="https://www.producthunt.com/posts/cleancsv-3?embed=true&utm_source=badge-featured&utm_medium=badge" target="_blank" rel="noopener noreferrer">
       <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=cleancsv-3&theme=light" alt="CleanCSV - Zero-retention, in-browser CSV cleaner & formatter | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" />
     </a>
   </div>
 
   <div id="root"></div>
+  
+  <!-- Vite Entry Point (Local Dev ke liye zaroori) -->
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
