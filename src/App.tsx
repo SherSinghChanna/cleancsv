@@ -28,7 +28,7 @@ const getSavedPlanOverride = (email: string): 'BASIC' | 'PRO' | 'YEARLY_PRO' | '
 const INITIAL_PROFILE: CustomerProfileData = {
   name: 'User',
   email: '',
-  avatar: '', 
+  avatar: '',
   role: 'Customer',
   plan: 'BASIC',
   expiryDate: 'Forever Free',
@@ -53,7 +53,6 @@ const INITIAL_PROFILE: CustomerProfileData = {
   ],
 };
 
-// Main App Component ke andar ka logic alag kiya hai taaki Router use kar sakein
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +62,7 @@ function AppContent() {
     if (savedProfile) {
       try {
         return JSON.parse(savedProfile);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -71,35 +70,25 @@ function AppContent() {
   });
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    const savedAdmin = localStorage.getItem('cleancsv_admin_logged_in') === 'true';
     const savedProfile = localStorage.getItem('cleancsv_user_profile');
     if (savedProfile) {
       try {
         const parsed = JSON.parse(savedProfile);
-        return (parsed.email || '').trim().toLowerCase() === ADMIN_EMAIL;
+        return savedAdmin || (parsed.email || '').trim().toLowerCase() === ADMIN_EMAIL;
       } catch {
-        return false;
+        return savedAdmin;
       }
     }
-    return false;
+    return savedAdmin;
   });
 
   const [currentView, setCurrentView] = useState<NavView>(() => {
-    const savedView = localStorage.getItem('cleancsv_current_view') as NavView;
-    if (savedView === 'admin') {
-      const savedProfile = localStorage.getItem('cleancsv_user_profile');
-      if (savedProfile) {
-        try {
-          const parsed = JSON.parse(savedProfile);
-          if ((parsed.email || '').trim().toLowerCase() === ADMIN_EMAIL) {
-            return 'admin';
-          }
-        } catch {
-          // ignore
-        }
-      }
-      return 'home';
-    }
-    return savedView || 'home';
+    const path = window.location.pathname;
+    if (path === '/profile') return 'profile';
+    if (path === '/admin') return 'admin';
+    if (path === '/auth') return 'auth';
+    return 'home';
   });
 
   const [currentLanguage, setCurrentLanguage] = useState<Language>('en');
@@ -114,7 +103,7 @@ function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     const savedUser = localStorage.getItem('cleancsv_user_session');
     return Boolean(savedUser);
-  }); 
+  });
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -124,7 +113,7 @@ function AppContent() {
   const t = translations[currentLanguage];
 
   const cleanEmail = (profile.email || '').trim().toLowerCase();
-  const isActualAdmin = cleanEmail === ADMIN_EMAIL;
+  const isActualAdmin = cleanEmail === ADMIN_EMAIL || isAdminLoggedIn;
 
   const adminOverridePlan = getSavedPlanOverride(cleanEmail);
   const effectivePlan = adminOverridePlan || (isActualAdmin ? 'PRO' : (profile.plan || 'BASIC'));
@@ -146,7 +135,6 @@ function AppContent() {
     plan: effectivePlan,
   };
 
-  // SMART ROUTING: Jab URL change ho (jaise /csv-to-excel), toh currentView ko update karein
   useEffect(() => {
     const path = location.pathname;
     if (path === '/profile') setCurrentView('profile');
@@ -156,15 +144,10 @@ function AppContent() {
   }, [location.pathname]);
 
   const handleNavigateView = (view: any) => {
-    if (view === 'admin' && !isActualAdmin) {
-      navigate('/');
-      return;
-    }
-    const targetView = (view === 'cleaner' || view === 'home') ? 'home' : view;
+    const targetView: NavView = (view === 'cleaner' || view === 'home') ? 'home' : view;
     setCurrentView(targetView);
     localStorage.setItem('cleancsv_current_view', targetView);
 
-    // Navbar se click karne par URL change karein
     if (targetView === 'profile') navigate('/profile');
     else if (targetView === 'admin') navigate('/admin');
     else if (targetView === 'auth') navigate('/auth');
@@ -172,8 +155,7 @@ function AppContent() {
   };
 
   useEffect(() => {
-    // 🚨 SPEED FIX: Supabase डेटा सिर्फ Admin के लिए फेच होगा
-    if (!isActualAdmin) return; 
+    if (!isActualAdmin) return;
 
     const fetchSupabaseData = async () => {
       try {
@@ -318,7 +300,7 @@ function AppContent() {
   const handleLoginSuccess = async (name: string, email: string) => {
     setIsLoggedIn(true);
     localStorage.setItem('cleancsv_user_session', 'true');
-    
+
     const cleanLoginEmail = email.trim().toLowerCase();
     const isOwner = cleanLoginEmail === ADMIN_EMAIL;
 
@@ -355,8 +337,8 @@ function AppContent() {
       setIsAdminLoggedIn(false);
       localStorage.removeItem('cleancsv_admin_logged_in');
     }
-    
-    handleNavigateView('home'); 
+
+    handleNavigateView('home');
   };
 
   const handleAdminDirectLogin = () => {
@@ -384,13 +366,27 @@ function AppContent() {
     localStorage.removeItem('cleancsv_user_profile');
     localStorage.removeItem('cleancsv_current_view');
     localStorage.removeItem('cleancsv_freeFilesUsed');
-    setProfile(INITIAL_PROFILE); 
+    setProfile(INITIAL_PROFILE);
     setFreeFilesUsed(0);
     handleNavigateView('home');
   };
 
+  const cleanerElement = (
+    <HomeCleaner
+      t={t}
+      freeFilesUsed={freeFilesUsed}
+      onIncrementUsage={handleIncrementUsage}
+      onFileCleaned={handleFileCleaned}
+      onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')}
+      onNavigateToAdmin={() => handleNavigateView('admin')}
+      onOpenSupportModal={() => setIsSupportModalOpen(true)}
+      onSelectLanguage={setCurrentLanguage}
+      currentUser={currentUserData}
+    />
+  );
+
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col bg-[#f5f7fb] text-slate-900 font-sans selection:bg-emerald-500 selection:text-white"
       dir={currentLanguage === 'ar' ? 'rtl' : 'ltr'}
     >
@@ -416,30 +412,70 @@ function AppContent() {
       />
 
       <div className="flex-1">
-        {/* 🚀 ROUTER SETUP: Ab aapki site par alag-alag URLs banenge */}
         <Routes>
-          {/* SEO Landing Pages */}
-          <Route path="/csv-to-excel" element={<HomeCleaner t={t} freeFilesUsed={0} onIncrementUsage={handleIncrementUsage} onFileCleaned={handleFileCleaned} onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')} onNavigateToAdmin={() => handleNavigateView('admin')} onOpenSupportModal={() => setIsSupportModalOpen(true)} onSelectLanguage={setCurrentLanguage} currentUser={currentUserData} />} />
-          <Route path="/csv-viewer" element={<HomeCleaner t={t} freeFilesUsed={0} onIncrementUsage={handleIncrementUsage} onFileCleaned={handleFileCleaned} onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')} onNavigateToAdmin={() => handleNavigateView('admin')} onOpenSupportModal={() => setIsSupportModalOpen(true)} onSelectLanguage={setCurrentLanguage} currentUser={currentUserData} />} />
-          <Route path="/remove-duplicates" element={<HomeCleaner t={t} freeFilesUsed={0} onIncrementUsage={handleIncrementUsage} onFileCleaned={handleFileCleaned} onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')} onNavigateToAdmin={() => handleNavigateView('admin')} onOpenSupportModal={() => setIsSupportModalOpen(true)} onSelectLanguage={setCurrentLanguage} currentUser={currentUserData} />} />
+          <Route path="/csv-to-excel" element={cleanerElement} />
+          <Route path="/csv-viewer" element={cleanerElement} />
+          <Route path="/remove-duplicates" element={cleanerElement} />
+          <Route path="/bank-csv-cleaner" element={cleanerElement} />
 
-          {/* App Pages */}
-          <Route path="/profile" element={currentView === 'profile' && isLoggedIn ? (
-            <CustomerProfile t={t} profile={currentUserData} onUpdateProfile={handleUpdateProfile} onPlanPurchased={handlePlanPurchased} onLogout={handleLogout} onNavigate={(view) => handleNavigateView(view)} onNavigateToCleaner={() => handleNavigateView('home')} />
-          ) : <Navigate to="/" />} />
-          
-          <Route path="/admin" element={currentView === 'admin' && isActualAdmin ? (
-            <AdminDashboard t={t} isAdminLoggedIn={isAdminLoggedIn} onLoginAdmin={() => { setIsAdminLoggedIn(true); localStorage.setItem('cleancsv_admin_logged_in', 'true'); }} onLogoutAdmin={() => { setIsAdminLoggedIn(false); localStorage.removeItem('cleancsv_admin_logged_in'); handleNavigateView('home'); }} onReturnToHome={() => handleNavigateView('home')} sales={sales} onAddSale={handleAddLiveSale} users={users} onUpdateUsers={setUsers} cleanedFilesHistory={cleanedFilesHistory} totalCleanedFiles={Math.max(globalCleanedCount, profile.totalCleanedFiles)} onAdminUpgradeEmail={handleAdminUpgradeEmail} />
-          ) : <Navigate to="/" />} />
-          
-          <Route path="/auth" element={currentView === 'auth' ? (
-            <AuthSplitScreen t={t} onLoginSuccess={handleLoginSuccess} onAdminLoginSuccess={handleAdminDirectLogin} />
-          ) : <Navigate to="/" />} />
+          <Route
+            path="/profile"
+            element={
+              isLoggedIn ? (
+                <CustomerProfile
+                  t={t}
+                  profile={currentUserData}
+                  onUpdateProfile={handleUpdateProfile}
+                  onPlanPurchased={handlePlanPurchased}
+                  onLogout={handleLogout}
+                  onNavigate={(view) => handleNavigateView(view)}
+                  onNavigateToCleaner={() => handleNavigateView('home')}
+                />
+              ) : (
+                <Navigate to="/auth" />
+              )
+            }
+          />
 
-          {/* Homepage (Default) */}
-          <Route path="/*" element={
-            <HomeCleaner t={t} freeFilesUsed={0} onIncrementUsage={handleIncrementUsage} onFileCleaned={handleFileCleaned} onNavigateToPricing={() => handleNavigateView(isLoggedIn ? 'profile' : 'auth')} onNavigateToAdmin={() => handleNavigateView('admin')} onOpenSupportModal={() => setIsSupportModalOpen(true)} onSelectLanguage={setCurrentLanguage} currentUser={currentUserData} />
-          } />
+          <Route
+            path="/admin"
+            element={
+              <AdminDashboard
+                t={t}
+                isAdminLoggedIn={isAdminLoggedIn}
+                onLoginAdmin={() => {
+                  setIsAdminLoggedIn(true);
+                  localStorage.setItem('cleancsv_admin_logged_in', 'true');
+                }}
+                onLogoutAdmin={() => {
+                  setIsAdminLoggedIn(false);
+                  localStorage.removeItem('cleancsv_admin_logged_in');
+                  handleNavigateView('home');
+                }}
+                onReturnToHome={() => handleNavigateView('home')}
+                sales={sales}
+                onAddSale={handleAddLiveSale}
+                users={users}
+                onUpdateUsers={setUsers}
+                cleanedFilesHistory={cleanedFilesHistory}
+                totalCleanedFiles={Math.max(globalCleanedCount, profile.totalCleanedFiles)}
+                onAdminUpgradeEmail={handleAdminUpgradeEmail}
+              />
+            }
+          />
+
+          <Route
+            path="/auth"
+            element={
+              <AuthSplitScreen
+                t={t}
+                onLoginSuccess={handleLoginSuccess}
+                onAdminLoginSuccess={handleAdminDirectLogin}
+              />
+            }
+          />
+
+          <Route path="/*" element={cleanerElement} />
         </Routes>
       </div>
 
@@ -460,7 +496,6 @@ function AppContent() {
   );
 }
 
-// Main App component jisme Router wrap kiya gaya hai
 export default function App() {
   return (
     <BrowserRouter>

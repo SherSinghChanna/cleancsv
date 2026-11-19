@@ -23,10 +23,13 @@ ORD-1010, Priya Sharma , priya.s@delhi.org , 2026/10/26 , India , Premium , $120
 export function parseCSV(rawText: string): string[][] {
   const lines: string[][] = [];
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  
-  // Detect delimiter
+
   const firstLine = text.split('\n')[0] || '';
-  const delimiter = firstLine.includes('\t') ? '\t' : (firstLine.includes(';') && !firstLine.includes(',') ? ';' : ',');
+  const delimiter = firstLine.includes('\t')
+    ? '\t'
+    : firstLine.includes(';') && !firstLine.includes(',')
+      ? ';'
+      : ',';
 
   let currentRow: string[] = [];
   let currentCell = '';
@@ -39,7 +42,7 @@ export function parseCSV(rawText: string): string[][] {
     if (char === '"') {
       if (insideQuotes && nextChar === '"') {
         currentCell += '"';
-        i++; // skip escaped quote
+        i++;
       } else {
         insideQuotes = !insideQuotes;
       }
@@ -48,7 +51,7 @@ export function parseCSV(rawText: string): string[][] {
       currentCell = '';
     } else if (char === '\n' && !insideQuotes) {
       currentRow.push(currentCell);
-      if (currentRow.length > 0 && currentRow.some(c => c.trim().length > 0)) {
+      if (currentRow.length > 0 && currentRow.some((c) => c.trim().length > 0)) {
         lines.push(currentRow);
       }
       currentRow = [];
@@ -60,7 +63,7 @@ export function parseCSV(rawText: string): string[][] {
 
   if (currentCell.length > 0 || currentRow.length > 0) {
     currentRow.push(currentCell);
-    if (currentRow.some(c => c.trim().length > 0)) {
+    if (currentRow.some((c) => c.trim().length > 0)) {
       lines.push(currentRow);
     }
   }
@@ -69,28 +72,46 @@ export function parseCSV(rawText: string): string[][] {
 }
 
 /**
- * Standardize dates like 31-10-2026, 2026/10/31, 31/10/2026 to YYYY-MM-DD
+ * Standardize dates like 31-10-2026, 2026/10/31, 31/10/2026 to YYYY-MM-DD or DD-MM-YYYY
  */
-function normalizeDate(val: string): { normalized: string; changed: boolean } {
+function normalizeDate(
+  val: string,
+  targetFormat: string = 'YYYY-MM-DD'
+): { normalized: string; changed: boolean } {
   const trimmed = val.trim();
-  // Check if DD-MM-YYYY or DD/MM/YYYY
+
+  let year = '';
+  let month = '';
+  let day = '';
+
   const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (dmyMatch) {
-    const day = dmyMatch[1].padStart(2, '0');
-    const month = dmyMatch[2].padStart(2, '0');
-    const year = dmyMatch[3];
-    return { normalized: `${year}-${month}-${day}`, changed: true };
-  }
-  // Check if YYYY/MM/DD
   const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  if (ymdMatch) {
-    const year = ymdMatch[1];
-    const month = ymdMatch[2].padStart(2, '0');
-    const day = ymdMatch[3].padStart(2, '0');
-    const formatted = `${year}-${month}-${day}`;
-    return { normalized: formatted, changed: formatted !== trimmed };
+
+  if (dmyMatch) {
+    day = dmyMatch[1].padStart(2, '0');
+    month = dmyMatch[2].padStart(2, '0');
+    year = dmyMatch[3];
+  } else if (ymdMatch) {
+    year = ymdMatch[1];
+    month = ymdMatch[2].padStart(2, '0');
+    day = ymdMatch[3].padStart(2, '0');
+  } else {
+    return { normalized: trimmed, changed: false };
   }
-  return { normalized: trimmed, changed: false };
+
+  const formatted =
+    targetFormat === 'DD-MM-YYYY'
+      ? `${day}-${month}-${year}`
+      : `${year}-${month}-${day}`;
+
+  return { normalized: formatted, changed: formatted !== trimmed };
+}
+
+function parseNumericAmount(raw: string): number | null {
+  const cleaned = raw.replace(/[^0-9.-]/g, '').trim();
+  if (!cleaned || cleaned === '-' || cleaned === '.') return null;
+  const num = Number(cleaned);
+  return Number.isNaN(num) ? null : num;
 }
 
 export interface CleanOptions {
@@ -99,6 +120,9 @@ export interface CleanOptions {
   removeEmptyRows?: boolean;
   normalizeDates?: boolean;
   fixCurrencyValues?: boolean;
+  isBankMode?: boolean;
+  mergeDebitCredit?: boolean;
+  targetDateFormat?: string;
 }
 
 export function cleanCSVData(
@@ -109,6 +133,9 @@ export function cleanCSVData(
     removeEmptyRows: true,
     normalizeDates: true,
     fixCurrencyValues: true,
+    isBankMode: false,
+    mergeDebitCredit: false,
+    targetDateFormat: 'YYYY-MM-DD',
   }
 ): { headers: string[]; rows: string[][]; stats: CleaningStats } {
   const startTime = performance.now();
@@ -133,9 +160,11 @@ export function cleanCSVData(
   let emptyRowsRemoved = 0;
   let duplicatesRemoved = 0;
 
+  const targetDateFormat = options.targetDateFormat || 'YYYY-MM-DD';
+
   // Process headers
   const rawHeaders = rawData[0];
-  const headers = rawHeaders.map(h => {
+  let headers = rawHeaders.map((h) => {
     const trimmed = h.trim();
     if (trimmed !== h) cellsTrimmed++;
     return trimmed;
@@ -143,17 +172,15 @@ export function cleanCSVData(
 
   const bodyRows = rawData.slice(1);
   const seenRowSignatures = new Set<string>();
-  const cleanedRows: string[][] = [];
+  const intermediateRows: string[][] = [];
 
   for (const row of bodyRows) {
-    // Check if empty row
-    const isRowEmpty = row.every(cell => !cell || cell.trim().length === 0);
+    const isRowEmpty = row.every((cell) => !cell || cell.trim().length === 0);
     if (isRowEmpty) {
       emptyRowsRemoved++;
       continue;
     }
 
-    // Process cells
     const processedRow: string[] = [];
     for (let c = 0; c < headers.length; c++) {
       let cellValue = row[c] ?? '';
@@ -167,7 +194,7 @@ export function cleanCSVData(
       }
 
       if (options.normalizeDates) {
-        const { normalized, changed } = normalizeDate(cellValue);
+        const { normalized, changed } = normalizeDate(cellValue, targetDateFormat);
         if (changed) {
           datesNormalized++;
           cellValue = normalized;
@@ -177,28 +204,58 @@ export function cleanCSVData(
       processedRow.push(cellValue);
     }
 
-    // Check duplicate
     const signature = processedRow.join('|||').toLowerCase();
     if (options.removeDuplicates && seenRowSignatures.has(signature)) {
       duplicatesRemoved++;
       continue;
     }
     seenRowSignatures.add(signature);
-    cleanedRows.push(processedRow);
+    intermediateRows.push(processedRow);
+  }
+
+  // Bank Statement Mode: Debit & Credit merge into Amount
+  let finalRows = intermediateRows;
+  if (options.isBankMode && options.mergeDebitCredit) {
+    const debitIdx = headers.findIndex((h) => /debit|withdrawal|dr/i.test(h));
+    const creditIdx = headers.findIndex((h) => /credit|deposit|cr/i.test(h));
+
+    if (debitIdx !== -1 && creditIdx !== -1) {
+      const keepIndices = headers
+        .map((_, idx) => idx)
+        .filter((idx) => idx !== debitIdx && idx !== creditIdx);
+
+      headers = [...keepIndices.map((idx) => headers[idx]), 'Amount'];
+
+      finalRows = intermediateRows.map((r) => {
+        const debitVal = parseNumericAmount(r[debitIdx] || '');
+        const creditVal = parseNumericAmount(r[creditIdx] || '');
+
+        let mergedAmount = '';
+        if (debitVal !== null && debitVal !== 0) {
+          mergedAmount = `-${Math.abs(debitVal)}`;
+        } else if (creditVal !== null && creditVal !== 0) {
+          mergedAmount = `+${Math.abs(creditVal)}`;
+        } else {
+          mergedAmount = '0';
+        }
+
+        return [...keepIndices.map((idx) => r[idx] || ''), mergedAmount];
+      });
+    }
   }
 
   const cleanTimeMs = Math.round(performance.now() - startTime);
 
   return {
     headers,
-    rows: cleanedRows,
+    rows: finalRows,
     stats: {
       rowsProcessed: bodyRows.length,
       duplicatesRemoved,
       cellsTrimmed,
       emptyRowsRemoved,
       datesNormalized,
-      emailsValidated: cleanedRows.length,
+      emailsValidated: finalRows.length,
       cleanTimeMs,
     },
   };
@@ -216,7 +273,7 @@ export function stringifyCSV(headers: string[], rows: string[][]): string {
   };
 
   const headerLine = headers.map(escapeCell).join(',');
-  const rowLines = rows.map(row => row.map(escapeCell).join(','));
+  const rowLines = rows.map((row) => row.map(escapeCell).join(','));
   return [headerLine, ...rowLines].join('\r\n');
 }
 
